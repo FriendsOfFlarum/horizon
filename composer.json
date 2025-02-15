@@ -35,12 +35,12 @@
             "1.x": "1.x-dev"
         },
         "flarum-extension": {
-            "title": "Horizon",
+            "title": "FoF Horizon",
             "category": "feature",
             "icon": {
                 "image": "resources/logo.svg",
-                "backgroundColor": "#EBF1FD",
-                "color": "#3a98d0",
+                "backgroundColor": "#e74c3c",
+                "color": "#fff",
                 "backgroundSize": "90%",
                 "backgroundRepeat": "no-repeat",
                 "backgroundPosition": "center"
