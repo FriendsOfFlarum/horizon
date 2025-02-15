@@ -26,7 +26,8 @@ class Masters implements RequestHandlerInterface
     public function __construct(
         public MasterSupervisorRepository $masters,
         public SupervisorRepository $supervisors
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

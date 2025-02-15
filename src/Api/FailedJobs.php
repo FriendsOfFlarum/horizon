@@ -26,7 +26,8 @@ class FailedJobs implements RequestHandlerInterface
     public function __construct(
         public JobRepository $jobs,
         public TagRepository $tags
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -37,7 +38,7 @@ class FailedJobs implements RequestHandlerInterface
             : $this->paginateByTag($request, $tag);
 
         $total = $tag
-            ? $this->tags->count('failed:' . $tag)
+            ? $this->tags->count('failed:'.$tag)
             : $this->jobs->countFailed();
 
         return new JsonResponse([
@@ -56,7 +57,7 @@ class FailedJobs implements RequestHandlerInterface
     protected function paginateByTag(ServerRequestInterface $request, $tag)
     {
         $jobIds = $this->tags->paginate(
-            'failed:' . $tag,
+            'failed:'.$tag,
             Arr::get($request->getQueryParams(), 'starting_at', -1) + 1,
             50
         );

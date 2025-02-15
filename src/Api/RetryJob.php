@@ -13,7 +13,6 @@
 
 namespace FoF\Horizon\Api;
 
-use Illuminate\Contracts\Queue\Factory;
 use Laminas\Diactoros\Response\EmptyResponse;
 use Laravel\Horizon\Jobs\RetryFailedJob;
 use Laravel\Horizon\RedisQueue;
@@ -25,7 +24,8 @@ class RetryJob implements RequestHandlerInterface
 {
     public function __construct(
         public RedisQueue $queue
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

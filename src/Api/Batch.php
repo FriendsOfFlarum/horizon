@@ -25,7 +25,8 @@ class Batch implements RequestHandlerInterface
     public function __construct(
         public JobRepository $jobs,
         public BatchRepository $batches
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

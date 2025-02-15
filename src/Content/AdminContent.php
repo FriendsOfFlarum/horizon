@@ -22,7 +22,8 @@ class AdminContent
 {
     public function __construct(
         protected RedisManager $redis
-    ) {}
+    ) {
+    }
 
     public function __invoke(Document $document, ServerRequestInterface $request): void
     {

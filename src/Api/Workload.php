@@ -23,7 +23,8 @@ class Workload implements RequestHandlerInterface
 {
     public function __construct(
         public WorkloadRepository $workload
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

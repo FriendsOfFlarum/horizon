@@ -26,7 +26,8 @@ class TagMonitoring implements RequestHandlerInterface
     public function __construct(
         public TagRepository $tags,
         public JobRepository $jobs
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

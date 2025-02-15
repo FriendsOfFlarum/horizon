@@ -23,7 +23,8 @@ class Metrics implements RequestHandlerInterface
 {
     public function __construct(
         public MetricsRepository $metrics
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

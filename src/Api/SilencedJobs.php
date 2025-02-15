@@ -23,7 +23,8 @@ class SilencedJobs implements RequestHandlerInterface
 {
     public function __construct(
         public JobRepository $jobs
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

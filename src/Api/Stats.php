@@ -36,7 +36,8 @@ class Stats implements RequestHandlerInterface
         public WaitTimeCalculator $waits,
         public SupervisorRepository $supervisors,
         public MasterSupervisorRepository $masters
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -102,7 +103,7 @@ class Stats implements RequestHandlerInterface
      */
     protected function totalPausedMasters()
     {
-        if (! $masters = $this->masters->all()) {
+        if (!$masters = $this->masters->all()) {
             return 0;
         }
 

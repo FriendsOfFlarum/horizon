@@ -26,9 +26,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 class Home implements RequestHandlerInterface
 {
     public function __construct(
-        private Factory $view, 
-        private Config $config, 
-        private SettingsRepositoryInterface $settings, 
+        private Factory $view,
+        private Config $config,
+        private SettingsRepositoryInterface $settings,
         private Paths $paths
     ) {
     }
@@ -38,7 +38,7 @@ class Home implements RequestHandlerInterface
         return new HtmlResponse($this->view->make('horizon::layout', [
             'assetsAreCurrent'             => !$this->config->inDebugMode(),
             'js'                           => $this->getFileContents('app.js'),
-            'cssApp'                       => $this->getFileContents('app.css'),   
+            'cssApp'                       => $this->getFileContents('app.css'),
             'cssLight'                     => $this->getFileContents('styles.css'),
             'cssDark'                      => $this->getFileContents('styles-dark.css'),
             'horizonScriptVariables'       => Horizon::scriptVariables(),

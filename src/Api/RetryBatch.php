@@ -29,7 +29,8 @@ class RetryBatch implements RequestHandlerInterface
         public JobRepository $jobs,
         public BatchRepository $batches,
         public Queue $queue
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
