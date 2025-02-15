@@ -1,10 +1,11 @@
 <?php
 
 /*
- * This file is part of blomstra/horizon.
+ * This file is part of flarum/horizon.
  *
  * Copyright (c) Bokt.
  * Copyright (c) Blomstra Ltd.
+ * Copyright (c) FriendsOfFlarum
  *
  * For the full copyright and license information, please view the LICENSE.md
  * file that was distributed with this source code.
@@ -59,12 +60,12 @@ class Stats implements RequestHandlerInterface
                 'recentlyFailed' => $this->config->get('horizon.trim.failed'),
             ],
             'redis_stats'            => [
-                'memory_used' => Arr::get($this->getInfo(), 'Memory.used_memory_human', 0),
-                'memory_peak' => Arr::get($this->getInfo(), 'Memory.used_memory_peak_human', 0),
-                'memory_max'  => $this->formatMaxMemory(Arr::get($this->getInfo(), 'Memory.maxmemory_human', 0)),
+                'memory_used'       => Arr::get($this->getInfo(), 'Memory.used_memory_human', 0),
+                'memory_peak'       => Arr::get($this->getInfo(), 'Memory.used_memory_peak_human', 0),
+                'memory_max'        => $this->formatMaxMemory(Arr::get($this->getInfo(), 'Memory.maxmemory_human', 0)),
                 'memory_max_policy' => Arr::get($this->getInfo(), 'Memory.maxmemory_policy', ''),
-                'cpu_user'    => Arr::get($this->getInfo(), 'CPU.used_cpu_user', 0),
-                'cpu_sys'     => Arr::get($this->getInfo(), 'CPU.used_cpu_sys', 0),
+                'cpu_user'          => Arr::get($this->getInfo(), 'CPU.used_cpu_user', 0),
+                'cpu_sys'           => Arr::get($this->getInfo(), 'CPU.used_cpu_sys', 0),
             ],
         ]);
     }

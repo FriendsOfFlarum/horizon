@@ -1,10 +1,11 @@
 <?php
 
 /*
- * This file is part of blomstra/horizon.
+ * This file is part of flarum/horizon.
  *
  * Copyright (c) Bokt.
  * Copyright (c) Blomstra Ltd.
+ * Copyright (c) FriendsOfFlarum
  *
  * For the full copyright and license information, please view the LICENSE.md
  * file that was distributed with this source code.
@@ -15,8 +16,6 @@ namespace FoF\Horizon\Http;
 use Flarum\Foundation\Config;
 use Flarum\Foundation\Paths;
 use Flarum\Settings\SettingsRepositoryInterface;
-use Illuminate\Contracts\Filesystem\Cloud;
-use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\View\Factory;
 use Laminas\Diactoros\Response\HtmlResponse;
 use Laravel\Horizon\Horizon;
@@ -55,7 +54,7 @@ class Home implements RequestHandlerInterface
     {
         return new HtmlResponse($this->view->make('horizon::layout', [
             'assetsAreCurrent'             => !$this->config->inDebugMode(),
-            'js'                           => $this->getFileContents('app.js'),  
+            'js'                           => $this->getFileContents('app.js'),
             'cssLight'                     => $this->getFileContents('app.css'),
             'cssDark'                      => $this->getFileContents('app-dark.css'),
             'horizonScriptVariables'       => Horizon::scriptVariables(),

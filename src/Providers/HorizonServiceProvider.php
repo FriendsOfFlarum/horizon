@@ -1,10 +1,11 @@
 <?php
 
 /*
- * This file is part of blomstra/horizon.
+ * This file is part of flarum/horizon.
  *
  * Copyright (c) Bokt.
  * Copyright (c) Blomstra Ltd.
+ * Copyright (c) FriendsOfFlarum
  *
  * For the full copyright and license information, please view the LICENSE.md
  * file that was distributed with this source code.
@@ -12,13 +13,13 @@
 
 namespace FoF\Horizon\Providers;
 
-use FoF\Horizon\Dispatcher\Notifier;
-use FoF\Horizon\Overrides\RedisQueue;
-use FoF\Redis\Overrides\RedisManager;
 use Flarum\Foundation\Config;
 use Flarum\Foundation\Paths;
 use Flarum\Http\UrlGenerator;
 use Flarum\Settings\SettingsRepositoryInterface;
+use FoF\Horizon\Dispatcher\Notifier;
+use FoF\Horizon\Overrides\RedisQueue;
+use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Bus\BatchFactory;
 use Illuminate\Bus\BatchRepository;
 use Illuminate\Bus\DatabaseBatchRepository;
@@ -162,12 +163,12 @@ class HorizonServiceProvider extends Provider
         ]);
 
         Arr::set($config, 'trim', [
-            'recent' => $settings->get('blomstra-horizon.trim.recent'),
-            'pending' => $settings->get('blomstra-horizon.trim.pending'),
-            'completed' => $settings->get('blomstra-horizon.trim.completed'),
+            'recent'        => $settings->get('blomstra-horizon.trim.recent'),
+            'pending'       => $settings->get('blomstra-horizon.trim.pending'),
+            'completed'     => $settings->get('blomstra-horizon.trim.completed'),
             'recent_failed' => $settings->get('blomstra-horizon.trim.recent_failed'),
-            'failed' => $settings->get('blomstra-horizon.trim.failed'),
-            'monitored' => $settings->get('blomstra-horizon.trim.monitored'),
+            'failed'        => $settings->get('blomstra-horizon.trim.failed'),
+            'monitored'     => $settings->get('blomstra-horizon.trim.monitored'),
         ]);
 
         /** @var Repository $repository */

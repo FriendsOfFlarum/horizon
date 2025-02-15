@@ -1,10 +1,11 @@
 <?php
 
 /*
- * This file is part of blomstra/horizon.
+ * This file is part of flarum/horizon.
  *
  * Copyright (c) Bokt.
  * Copyright (c) Blomstra Ltd.
+ * Copyright (c) FriendsOfFlarum
  *
  * For the full copyright and license information, please view the LICENSE.md
  * file that was distributed with this source code.
@@ -12,9 +13,8 @@
 
 namespace FoF\Horizon;
 
-use FoF\Redis\Extend\Bindings;
 use Flarum\Extend as Flarum;
-use Flarum\Settings\Event\Saved;
+use FoF\Redis\Extend\Bindings;
 use Illuminate\Console\Scheduling\Event;
 use Laravel\Horizon\Console as Laravel;
 
