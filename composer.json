@@ -22,7 +22,7 @@
     "require": {
         "flarum/core": "^1.8",
         "laravel/horizon": "^5.21.3",
-        "fof/redis": "1.x-dev",
+        "fof/redis": "^1.0",
         "vlucas/phpdotenv": "^5.2"
     },
     "autoload": {
