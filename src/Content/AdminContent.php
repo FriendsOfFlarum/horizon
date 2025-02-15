@@ -20,15 +20,9 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class AdminContent
 {
-    /**
-     * @var RedisManager
-     */
-    protected $redis;
-
-    public function __construct(RedisManager $redis)
-    {
-        $this->redis = $redis;
-    }
+    public function __construct(
+        protected RedisManager $redis
+    ) {}
 
     public function __invoke(Document $document, ServerRequestInterface $request): void
     {

@@ -4,7 +4,7 @@ import extendStatusWidget from './extendStatusWidget';
 import extendDashboardPage from './extendDashboardPage';
 
 app.initializers.add('fof/horizon', () => {
-  app.extensionData.for('fof-horizon').registerPage(SettingsPage);
+  app.registry.for('fof-horizon').registerPage(SettingsPage);
   extendStatusWidget();
   extendDashboardPage();
 });

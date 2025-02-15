@@ -22,12 +22,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Batches implements RequestHandlerInterface
 {
-    public $batches;
-
-    public function __construct(BatchRepository $batches)
-    {
-        $this->batches = $batches;
-    }
+    public function __construct(
+        public BatchRepository $batches
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

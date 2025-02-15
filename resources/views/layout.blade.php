@@ -11,6 +11,7 @@
     <!-- Style sheets-->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:300,400,500,600" rel="stylesheet" />
+    <style>{{$cssApp}}</style>
     <style data-scheme="light">{{$cssLight}}</style>
     <style data-scheme="dark">{{$cssDark}}</style>
 

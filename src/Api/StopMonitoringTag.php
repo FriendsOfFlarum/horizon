@@ -23,15 +23,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class StopMonitoringTag implements RequestHandlerInterface
 {
-    /**
-     * @var Factory|RedisQueue
-     */
-    private $queue;
-
-    public function __construct(Factory $queue)
-    {
-        $this->queue = $queue;
-    }
+    public function __construct(
+        public RedisQueue $queue
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

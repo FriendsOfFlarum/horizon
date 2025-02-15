@@ -23,20 +23,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class TagMonitoring implements RequestHandlerInterface
 {
-    /**
-     * @var TagRepository
-     */
-    private $tags;
-    /**
-     * @var JobRepository
-     */
-    private $jobs;
-
-    public function __construct(TagRepository $tags, JobRepository $jobs)
-    {
-        $this->tags = $tags;
-        $this->jobs = $jobs;
-    }
+    public function __construct(
+        public TagRepository $tags,
+        public JobRepository $jobs
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

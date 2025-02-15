@@ -25,29 +25,12 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Home implements RequestHandlerInterface
 {
-    /**
-     * @var Factory
-     */
-    private $view;
-
-    /**
-     * @var Config
-     */
-    private $config;
-
-    /**
-     * @var SettingsRepositoryInterface
-     */
-    private $settings;
-
-    private $paths;
-
-    public function __construct(Factory $view, Config $config, SettingsRepositoryInterface $settings, Paths $paths)
-    {
-        $this->view = $view;
-        $this->config = $config;
-        $this->settings = $settings;
-        $this->paths = $paths;
+    public function __construct(
+        private Factory $view, 
+        private Config $config, 
+        private SettingsRepositoryInterface $settings, 
+        private Paths $paths
+    ) {
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -55,8 +38,9 @@ class Home implements RequestHandlerInterface
         return new HtmlResponse($this->view->make('horizon::layout', [
             'assetsAreCurrent'             => !$this->config->inDebugMode(),
             'js'                           => $this->getFileContents('app.js'),
-            'cssLight'                     => $this->getFileContents('app.css'),
-            'cssDark'                      => $this->getFileContents('app-dark.css'),
+            'cssApp'                       => $this->getFileContents('app.css'),   
+            'cssLight'                     => $this->getFileContents('styles.css'),
+            'cssDark'                      => $this->getFileContents('styles-dark.css'),
             'horizonScriptVariables'       => Horizon::scriptVariables(),
             'isDownForMaintenance'         => $this->config->inMaintenanceMode(),
             'forumTitle'                   => $this->settings->get('forum_title'),
@@ -65,6 +49,6 @@ class Home implements RequestHandlerInterface
 
     protected function getFileContents(string $file): string
     {
-        return @file_get_contents($this->paths->vendor.'/laravel/horizon/public/'.$file);
+        return @file_get_contents($this->paths->vendor.'/laravel/horizon/dist/'.$file);
     }
 }

@@ -21,15 +21,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Job implements RequestHandlerInterface
 {
-    /**
-     * @var JobRepository
-     */
-    private $jobs;
-
-    public function __construct(JobRepository $jobs)
-    {
-        $this->jobs = $jobs;
-    }
+    public function __construct(
+        public JobRepository $jobs
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

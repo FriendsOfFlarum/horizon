@@ -21,15 +21,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Metrics implements RequestHandlerInterface
 {
-    /**
-     * @var MetricsRepository
-     */
-    private $metrics;
-
-    public function __construct(MetricsRepository $metrics)
-    {
-        $this->metrics = $metrics;
-    }
+    public function __construct(
+        public MetricsRepository $metrics
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

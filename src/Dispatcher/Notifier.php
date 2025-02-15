@@ -38,7 +38,7 @@ class Notifier implements Dispatcher
      *
      * @return void
      */
-    public function sendNow($notifiables, $notification)
+    public function sendNow($notifiables, $notification, ?array $channels = null)
     {
         // TODO: Implement sendNow() method.
     }

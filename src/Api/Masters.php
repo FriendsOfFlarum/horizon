@@ -16,26 +16,17 @@ namespace FoF\Horizon\Api;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 use Laravel\Horizon\Contracts\SupervisorRepository;
+use Laravel\Horizon\ProvisioningPlan;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 class Masters implements RequestHandlerInterface
 {
-    /**
-     * @var MasterSupervisorRepository
-     */
-    private $masters;
-    /**
-     * @var SupervisorRepository
-     */
-    private $supervisors;
-
-    public function __construct(MasterSupervisorRepository $masters, SupervisorRepository $supervisors)
-    {
-        $this->masters = $masters;
-        $this->supervisors = $supervisors;
-    }
+    public function __construct(
+        public MasterSupervisorRepository $masters,
+        public SupervisorRepository $supervisors
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -44,12 +35,44 @@ class Masters implements RequestHandlerInterface
 
     protected function index()
     {
-        $masters = collect($this->masters->all())->keyBy('name')->sortBy('name');
+        // Get all masters and key by name
+        $masters = collect($this->masters->all())
+            ->keyBy('name')
+            ->sortBy('name');
 
-        $supervisors = collect($this->supervisors->all())->sortBy('name')->groupBy('master');
+        // Group all supervisors by their "master" field
+        $supervisors = collect($this->supervisors->all())
+            ->sortBy('name')
+            ->groupBy('master');
 
-        return $masters->each(function ($master, $name) use ($supervisors) {
-            $master->supervisors = $supervisors->get($name);
+        // For each master, merge in supervisors from the repository and from the provisioning plan.
+        return $masters->each(function ($master, $masterName) use ($supervisors) {
+            // Get the supervisors for this master from the repository (or an empty collection)
+            $collection = $supervisors->get($masterName, collect());
+            // Merge in the provisioning plan supervisors, which have a default inactive status.
+            $master->supervisors = $collection
+                ->merge(
+                    collect(
+                        ProvisioningPlan::get($masterName)
+                            ->plan[$master->environment ?? config('horizon.env') ?? config('app.env')] ?? []
+                    )
+                        ->map(function ($value, $key) use ($masterName) {
+                            return (object) [
+                                'name'      => "{$masterName}:{$key}",
+                                'master'    => $masterName,
+                                'status'    => 'inactive',
+                                'processes' => [],
+                                'options'   => [
+                                    'queue'   => (array_key_exists('queue', $value) && is_array($value['queue']))
+                                        ? implode(',', $value['queue'])
+                                        : ($value['queue'] ?? ''),
+                                    'balance' => $value['balance'] ?? null,
+                                ],
+                            ];
+                        })
+                )
+                ->unique('name')
+                ->values();
         });
     }
 }

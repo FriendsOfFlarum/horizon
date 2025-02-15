@@ -21,15 +21,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Monitoring implements RequestHandlerInterface
 {
-    /**
-     * @var TagRepository
-     */
-    private $tags;
-
-    public function __construct(TagRepository $tags)
-    {
-        $this->tags = $tags;
-    }
+    public function __construct(
+        public TagRepository $tags
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -37,7 +31,7 @@ class Monitoring implements RequestHandlerInterface
             collect($this->tags->monitoring())->map(function ($tag) {
                 return [
                     'tag'   => $tag,
-                    'count' => $this->tags->count($tag) + $this->tags->count('failed:'.$tag),
+                    'count' => $this->tags->count($tag) + $this->tags->count('failed:' . $tag),
                 ];
             })->sortBy('tag')->values()
         );

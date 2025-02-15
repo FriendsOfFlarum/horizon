@@ -25,6 +25,7 @@ use Illuminate\Bus\BatchRepository;
 use Illuminate\Bus\DatabaseBatchRepository;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Notifications\Dispatcher as Notifications;
 use Illuminate\Contracts\Redis\Factory;
 use Illuminate\Support\Arr;
@@ -85,8 +86,9 @@ class HorizonServiceProvider extends Provider
             /** @var RedisManager $manager */
             $manager = $this->app->make(Factory::class);
             $queue = new RedisQueue($manager);
-            /** @phpstan-ignore-next-line */
-            $queue->setContainer($this->app);
+            /** @var Container $container */
+            $container = resolve(Container::class);
+            $queue->setContainer($container);
 
             return $queue;
         });

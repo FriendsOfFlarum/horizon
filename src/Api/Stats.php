@@ -28,37 +28,32 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Stats implements RequestHandlerInterface
 {
-    /**
-     * @var Repository
-     */
-    private $config;
-
-    /**
-     * @var RedisManager
-     */
-    private $redis;
-
-    public function __construct(Repository $config, RedisManager $redis)
-    {
-        $this->config = $config;
-        $this->redis = $redis;
-    }
+    public function __construct(
+        public Repository $config,
+        public RedisManager $redis,
+        public MetricsRepository $metrics,
+        public JobRepository $jobs,
+        public WaitTimeCalculator $waits,
+        public SupervisorRepository $supervisors,
+        public MasterSupervisorRepository $masters
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         return new JsonResponse([
-            'jobsPerMinute'          => resolve(MetricsRepository::class)->jobsProcessedPerMinute(),
-            'processes'              => $this->totalProcessCount(),
-            'queueWithMaxRuntime'    => resolve(MetricsRepository::class)->queueWithMaximumRuntime(),
-            'queueWithMaxThroughput' => resolve(MetricsRepository::class)->queueWithMaximumThroughput(),
-            'recentlyFailed'         => resolve(JobRepository::class)->countRecentlyFailed(),
-            'recentJobs'             => resolve(JobRepository::class)->countRecent(),
-            'status'                 => $this->currentStatus(),
-            'wait'                   => collect(resolve(WaitTimeCalculator::class)->calculate())->take(1),
+            'failedJobs'             => $this->jobs->countRecentlyFailed(),
+            'jobsPerMinute'          => $this->metrics->jobsProcessedPerMinute(),
+            'pausedMasters'          => $this->totalPausedMasters(),
             'periods'                => [
                 'recentJobs'     => $this->config->get('horizon.trim.recent'),
                 'recentlyFailed' => $this->config->get('horizon.trim.failed'),
             ],
+            'processes'              => $this->totalProcessCount(),
+            'queueWithMaxRuntime'    => $this->metrics->queueWithMaximumRuntime(),
+            'queueWithMaxThroughput' => $this->metrics->queueWithMaximumThroughput(),
+            'recentJobs'             => $this->jobs->countRecent(),
+            'status'                 => $this->currentStatus(),
+            'wait'                   => collect($this->waits->calculate())->take(1),
             'redis_stats'            => [
                 'memory_used'       => Arr::get($this->getInfo(), 'Memory.used_memory_human', 0),
                 'memory_peak'       => Arr::get($this->getInfo(), 'Memory.used_memory_peak_human', 0),
@@ -70,24 +65,50 @@ class Stats implements RequestHandlerInterface
         ]);
     }
 
+    /**
+     * Get the total process count across all supervisors.
+     *
+     * @return int
+     */
     protected function totalProcessCount()
     {
-        $supervisors = resolve(SupervisorRepository::class)->all();
+        $supervisors = $this->supervisors->all();
 
         return collect($supervisors)->reduce(function ($carry, $supervisor) {
             return $carry + collect($supervisor->processes)->sum();
         }, 0);
     }
 
+    /**
+     * Get the current status of Horizon.
+     *
+     * @return string
+     */
     protected function currentStatus()
     {
-        if (!$masters = resolve(MasterSupervisorRepository::class)->all()) {
+        if (!$masters = $this->masters->all()) {
             return 'inactive';
         }
 
         return collect($masters)->contains(function ($master) {
             return $master->status === 'paused';
         }) ? 'paused' : 'running';
+    }
+
+    /**
+     * Get the number of master supervisors that are currently paused.
+     *
+     * @return int
+     */
+    protected function totalPausedMasters()
+    {
+        if (! $masters = $this->masters->all()) {
+            return 0;
+        }
+
+        return collect($masters)->filter(function ($master) {
+            return $master->status === 'paused';
+        })->count();
     }
 
     private function getInfo(): array

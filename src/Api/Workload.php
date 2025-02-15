@@ -21,12 +21,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Workload implements RequestHandlerInterface
 {
-    private $workload;
-
-    public function __construct(WorkloadRepository $workload)
-    {
-        $this->workload = $workload;
-    }
+    public function __construct(
+        public WorkloadRepository $workload
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

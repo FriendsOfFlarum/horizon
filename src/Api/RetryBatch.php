@@ -25,16 +25,11 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class RetryBatch implements RequestHandlerInterface
 {
-    public $jobs;
-    public $batches;
-    public $queue;
-
-    public function __construct(JobRepository $jobs, BatchRepository $batches, Queue $queue)
-    {
-        $this->jobs = $jobs;
-        $this->batches = $batches;
-        $this->queue = $queue;
-    }
+    public function __construct(
+        public JobRepository $jobs,
+        public BatchRepository $batches,
+        public Queue $queue
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {

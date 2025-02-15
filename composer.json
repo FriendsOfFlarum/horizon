@@ -20,9 +20,9 @@
         "source": "https://github.com/FriendsOfFlarum/horizon"
     },
     "require": {
-        "flarum/core": "^1.8",
-        "laravel/horizon": "^5.21.3",
-        "fof/redis": "^1.0",
+        "flarum/core": "^2.0.0-beta",
+        "laravel/horizon": "^5.29.1",
+        "fof/redis": "2.x-dev",
         "vlucas/phpdotenv": "^5.2"
     },
     "autoload": {
@@ -56,7 +56,7 @@
         }
     },
     "require-dev": {
-        "flarum/phpstan": "*"
+        "flarum/phpstan": "2.x-dev"
     },
     "scripts": {
         "analyse:phpstan": "phpstan analyse",
@@ -64,5 +64,6 @@
     },
     "scripts-descriptions": {
         "analyse:phpstan": "Run static analysis"
-    }
+    },
+    "minimum-stability": "dev"
 }
