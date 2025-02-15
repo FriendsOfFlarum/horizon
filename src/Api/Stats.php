@@ -10,9 +10,9 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Api;
+namespace FoF\Horizon\Api;
 
-use Blomstra\Redis\Overrides\RedisManager;
+use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Arr;
 use Laminas\Diactoros\Response\JsonResponse;

@@ -10,7 +10,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Api;
+namespace FoF\Horizon\Api;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use Laravel\Horizon\Contracts\WorkloadRepository;

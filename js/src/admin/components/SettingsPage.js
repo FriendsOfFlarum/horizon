@@ -9,49 +9,49 @@ export default class SettingsPage extends ExtensionPage {
       <div className="container">
         <div className="HorizonSettingsPage">
           <LinkButton icon="fas fa-external-link-alt" className="Button" href={horizonUrl} external={true} target="_blank">
-            {app.translator.trans('blomstra-horizon.admin.stats.full_dashboard')}
+            {app.translator.trans('fof-horizon.admin.stats.full_dashboard')}
           </LinkButton>
           <hr />
           <div className="HorizonSettingsPage-settings">
             <div className="Form-group">
               <div className="HorizonSettingsPage-trim">
-                <h3>{app.translator.trans('blomstra-horizon.admin.settings.trim_title')}</h3>
-                <p className="helpText">{app.translator.trans('blomstra-horizon.admin.settings.trim_help')}</p>
+                <h3>{app.translator.trans('fof-horizon.admin.settings.trim_title')}</h3>
+                <p className="helpText">{app.translator.trans('fof-horizon.admin.settings.trim_help')}</p>
                 {this.buildSettingComponent({
-                  setting: 'blomstra-horizon.trim.recent',
+                  setting: 'fof-horizon.trim.recent',
                   type: 'number',
-                  label: app.translator.trans('blomstra-horizon.admin.settings.trim_recent'),
-                  help: app.translator.trans('blomstra-horizon.admin.settings.trim_recent_help'),
+                  label: app.translator.trans('fof-horizon.admin.settings.trim_recent'),
+                  help: app.translator.trans('fof-horizon.admin.settings.trim_recent_help'),
                 })}
                 {this.buildSettingComponent({
-                  setting: 'blomstra-horizon.trim.pending',
+                  setting: 'fof-horizon.trim.pending',
                   type: 'number',
-                  label: app.translator.trans('blomstra-horizon.admin.settings.trim_pending'),
-                  help: app.translator.trans('blomstra-horizon.admin.settings.trim_pending_help'),
+                  label: app.translator.trans('fof-horizon.admin.settings.trim_pending'),
+                  help: app.translator.trans('fof-horizon.admin.settings.trim_pending_help'),
                 })}
                 {this.buildSettingComponent({
-                  setting: 'blomstra-horizon.trim.completed',
+                  setting: 'fof-horizon.trim.completed',
                   type: 'number',
-                  label: app.translator.trans('blomstra-horizon.admin.settings.trim_completed'),
-                  help: app.translator.trans('blomstra-horizon.admin.settings.trim_completed_help'),
+                  label: app.translator.trans('fof-horizon.admin.settings.trim_completed'),
+                  help: app.translator.trans('fof-horizon.admin.settings.trim_completed_help'),
                 })}
                 {this.buildSettingComponent({
-                  setting: 'blomstra-horizon.trim.recent_failed',
+                  setting: 'fof-horizon.trim.recent_failed',
                   type: 'number',
-                  label: app.translator.trans('blomstra-horizon.admin.settings.trim_recent_failed'),
-                  help: app.translator.trans('blomstra-horizon.admin.settings.trim_recent_failed_help'),
+                  label: app.translator.trans('fof-horizon.admin.settings.trim_recent_failed'),
+                  help: app.translator.trans('fof-horizon.admin.settings.trim_recent_failed_help'),
                 })}
                 {this.buildSettingComponent({
-                  setting: 'blomstra-horizon.trim.failed',
+                  setting: 'fof-horizon.trim.failed',
                   type: 'number',
-                  label: app.translator.trans('blomstra-horizon.admin.settings.trim_failed'),
-                  help: app.translator.trans('blomstra-horizon.admin.settings.trim_failed_help'),
+                  label: app.translator.trans('fof-horizon.admin.settings.trim_failed'),
+                  help: app.translator.trans('fof-horizon.admin.settings.trim_failed_help'),
                 })}
                 {this.buildSettingComponent({
-                  setting: 'blomstra-horizon.trim.monitored',
+                  setting: 'fof-horizon.trim.monitored',
                   type: 'number',
-                  label: app.translator.trans('blomstra-horizon.admin.settings.trim_monitored'),
-                  help: app.translator.trans('blomstra-horizon.admin.settings.trim_monitored_help'),
+                  label: app.translator.trans('fof-horizon.admin.settings.trim_monitored'),
+                  help: app.translator.trans('fof-horizon.admin.settings.trim_monitored_help'),
                 })}
               </div>
               <br />

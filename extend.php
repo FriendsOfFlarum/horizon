@@ -10,9 +10,9 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon;
+namespace FoF\Horizon;
 
-use Blomstra\Redis\Extend\Bindings;
+use FoF\Redis\Extend\Bindings;
 use Flarum\Extend as Flarum;
 use Flarum\Settings\Event\Saved;
 use Illuminate\Console\Scheduling\Event;
@@ -29,12 +29,12 @@ return [
     new Bindings(),
 
     (new Flarum\Settings())
-        ->default('blomstra-horizon.trim.recent', 60)
-        ->default('blomstra-horizon.trim.pending', 60)
-        ->default('blomstra-horizon.trim.completed', 60)
-        ->default('blomstra-horizon.trim.recent_failed', 10080)
-        ->default('blomstra-horizon.trim.failed', 10080)
-        ->default('blomstra-horizon.trim.monitored', 10080),
+        ->default('fof-horizon.trim.recent', 60)
+        ->default('fof-horizon.trim.pending', 60)
+        ->default('fof-horizon.trim.completed', 60)
+        ->default('fof-horizon.trim.recent_failed', 10080)
+        ->default('fof-horizon.trim.failed', 10080)
+        ->default('fof-horizon.trim.monitored', 10080),
 
     (new Flarum\ServiceProvider())
         ->register(Providers\HorizonServiceProvider::class),
@@ -91,7 +91,7 @@ return [
         ->get('/horizon', 'horizon.index', Http\Home::class)
         ->get('/horizon/{view:.*}', 'horizon.index.view', Http\Home::class),
     // Assets
-    new Extend\PublishAssets(),
+    //new Extend\PublishAssets(),
 
     (new Flarum\View())
         ->namespace('horizon', __DIR__.'/resources/views'),

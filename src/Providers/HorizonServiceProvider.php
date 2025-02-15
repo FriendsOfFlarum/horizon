@@ -10,11 +10,11 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Providers;
+namespace FoF\Horizon\Providers;
 
-use Blomstra\Horizon\Dispatcher\Notifier;
-use Blomstra\Horizon\Overrides\RedisQueue;
-use Blomstra\Redis\Overrides\RedisManager;
+use FoF\Horizon\Dispatcher\Notifier;
+use FoF\Horizon\Overrides\RedisQueue;
+use FoF\Redis\Overrides\RedisManager;
 use Flarum\Foundation\Config;
 use Flarum\Foundation\Paths;
 use Flarum\Http\UrlGenerator;

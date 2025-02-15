@@ -12,7 +12,7 @@ Which includes:
 ![](https://laravel.com/img/docs/horizon-example.png)
 
 Laravel Horizon runs only using a redis connection. As such you 
-**have to configure** [blomstra/redis](https://discuss.flarum.org/d/21873). If you don't you will
+**have to configure** [fof/redis](https://discuss.flarum.org/d/21873). If you don't you will
 see errors pop up.
 
 
@@ -20,7 +20,7 @@ see errors pop up.
 Install manually with composer:
 
 ```sh
-composer require blomstra/horizon:"*"
+composer require fof/horizon:"*"
 ```
 
 ### Set up
@@ -40,7 +40,7 @@ installation:
 <?php
 
 return [
-    (new Blomstra\Horizon\Extend\Horizon)->config(
+    (new FoF\Horizon\Extend\Horizon)->config(
         './your-horizon-config.php'
     )
 ];
@@ -48,10 +48,5 @@ return [
 
 ### Links
 
-- [Packagist](https://packagist.org/packages/blomstra/horizon)
-- [GitHub](https://github.com/blomstra/flarum-ext-horizon)
-
----
-
-- Blomstra provides managed Flarum hosting.
-- https://blomstra.net
+- [Packagist](https://packagist.org/packages/fof/horizon)
+- [GitHub](https://github.com/FriendsOfFlarum/horizon)

@@ -67,9 +67,9 @@ export default class HorizonStatsWidget extends DashboardWidget {
     return (
       <div className="HorizonStatsWidget-container">
         <div className="HorizonStatsWidget-header">
-          <h4 className="HorizonStatsWidget-title">{app.translator.trans('blomstra-horizon.admin.stats.heading')}</h4>
+          <h4 className="HorizonStatsWidget-title">{app.translator.trans('fof-horizon.admin.stats.heading')}</h4>
           <div className="HorizonStatsWidget-controls">
-            <Tooltip text={app.translator.trans('blomstra-horizon.admin.stats.refresh')}>
+            <Tooltip text={app.translator.trans('fof-horizon.admin.stats.refresh')}>
               <Button
                 className="Button Button--icon"
                 icon="fas fa-sync-alt"
@@ -85,14 +85,14 @@ export default class HorizonStatsWidget extends DashboardWidget {
               target="_blank"
               external={true}
             >
-              {app.translator.trans('blomstra-horizon.admin.stats.full_dashboard')}
+              {app.translator.trans('fof-horizon.admin.stats.full_dashboard')}
             </LinkButton>
           </div>
         </div>
         <div className="HorizonStatsWidget-grid">{this.renderStatsSection()}</div>
         <div className="HorizonStatsWidget-footer">
           <Switch state={this.autoRefreshEnabled} onchange={this.toggleAutoRefresh.bind(this)} loading={this.loading}>
-            {app.translator.trans('blomstra-horizon.admin.stats.auto_refresh')}
+            {app.translator.trans('fof-horizon.admin.stats.auto_refresh')}
           </Switch>
         </div>
       </div>
@@ -106,24 +106,24 @@ export default class HorizonStatsWidget extends DashboardWidget {
     return (
       <>
         {this.renderStatusIndicator(status)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.redis-used-memory'), redis_stats.memory_used)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.redis-peak-memory'), redis_stats.memory_peak)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.redis-max-memory'), redis_stats.memory_max ?? 'auto')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-used-memory'), redis_stats.memory_used)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-peak-memory'), redis_stats.memory_peak)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-max-memory'), redis_stats.memory_max ?? 'auto')}
         {this.renderStat(
-          app.translator.trans('blomstra-horizon.admin.stats.data.redis-memory-policy'),
+          app.translator.trans('fof-horizon.admin.stats.data.redis-memory-policy'),
           redis_stats.memory_max_policy,
-          app.translator.trans('blomstra-horizon.admin.stats.data.redis-memory-policy-tooltip'),
+          app.translator.trans('fof-horizon.admin.stats.data.redis-memory-policy-tooltip'),
           'https://redis.io/docs/latest/develop/reference/eviction/'
         )}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.redis-cpu-user'), redis_stats.cpu_user + '%')}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.redis-cpu-sys'), redis_stats.cpu_sys + '%')}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.jobs-per-minute'), jobsPerMinute)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.jobs-past-hour'), recentJobs)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.failed-last-seconds'), recentlyFailed)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.total-processes'), processes)}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.max-wait-time'), '-')}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.max-runtime'), queueWithMaxRuntime ?? '-')}
-        {this.renderStat(app.translator.trans('blomstra-horizon.admin.stats.data.max-throughput'), queueWithMaxThroughput ?? '-')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-cpu-user'), redis_stats.cpu_user + '%')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-cpu-sys'), redis_stats.cpu_sys + '%')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-per-minute'), jobsPerMinute)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-past-hour'), recentJobs)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.failed-last-seconds'), recentlyFailed)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.total-processes'), processes)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-wait-time'), '-')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-runtime'), queueWithMaxRuntime ?? '-')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-throughput'), queueWithMaxThroughput ?? '-')}
       </>
     );
   }
@@ -182,9 +182,9 @@ export default class HorizonStatsWidget extends DashboardWidget {
 
     return (
       <div className="HorizonStatsWidget-stat">
-        <small>{app.translator.trans('blomstra-horizon.admin.stats.data.status.label')}</small>
+        <small>{app.translator.trans('fof-horizon.admin.stats.data.status.label')}</small>
         <p>
-          {icon(iconClass)} {status ? app.translator.trans(`blomstra-horizon.admin.stats.data.status.${status}`) : ''}
+          {icon(iconClass)} {status ? app.translator.trans(`fof-horizon.admin.stats.data.status.${status}`) : ''}
         </p>
       </div>
     );

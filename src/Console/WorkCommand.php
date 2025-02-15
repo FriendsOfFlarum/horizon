@@ -10,7 +10,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Console;
+namespace FoF\Horizon\Console;
 
 use Flarum\Foundation\Config;
 

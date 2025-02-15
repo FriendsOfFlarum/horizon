@@ -3,8 +3,8 @@ import SettingsPage from './components/SettingsPage';
 import extendStatusWidget from './extendStatusWidget';
 import extendDashboardPage from './extendDashboardPage';
 
-app.initializers.add('blomstra/horizon', () => {
-  app.extensionData.for('blomstra-horizon').registerPage(SettingsPage);
+app.initializers.add('fof/horizon', () => {
+  app.extensionData.for('fof-horizon').registerPage(SettingsPage);
   extendStatusWidget();
   extendDashboardPage();
 });

@@ -10,9 +10,9 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Content;
+namespace FoF\Horizon\Content;
 
-use Blomstra\Redis\Overrides\RedisManager;
+use FoF\Redis\Overrides\RedisManager;
 use Flarum\Frontend\Document;
 use Illuminate\Support\Arr;
 use Psr\Http\Message\ServerRequestInterface;

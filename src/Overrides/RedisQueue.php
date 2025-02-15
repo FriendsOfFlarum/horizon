@@ -10,7 +10,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Overrides;
+namespace FoF\Horizon\Overrides;
 
 use Laravel\Horizon\RedisQueue as HorizonBaseQueue;
 

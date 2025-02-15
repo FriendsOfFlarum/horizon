@@ -10,7 +10,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Blomstra\Horizon\Dispatcher;
+namespace FoF\Horizon\Dispatcher;
 
 use Illuminate\Contracts\Notifications\Dispatcher;
 
