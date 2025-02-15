@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of flarum/horizon.
+ * This file is part of fof/horizon.
  *
  * Copyright (c) Bokt.
  * Copyright (c) Blomstra Ltd.
