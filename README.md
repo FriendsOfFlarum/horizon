@@ -1,6 +1,6 @@
 # Horizon, the queue dashboard
 
-This extension adds full integration for [Laravel Horizon](https://laravel.com/docs/8.x/horizon).
+This extension adds full integration for [Laravel Horizon](https://laravel.com/docs/11.x/horizon).
 
 Which includes:
 
@@ -26,7 +26,7 @@ composer require fof/horizon:"*"
 ### Set up
 
 Enable the extension from your admin area and then run `php flarum horizon`. This will only run as long as your
-process is active, so make sure to set it up using supervisor or something similar, see the [Horizon Documentation](https://laravel.com/docs/8.x/horizon#deploying-horizon)
+process is active, so make sure to set it up using supervisor or something similar, see the [Horizon Documentation](https://laravel.com/docs/11.x/horizon#deploying-horizon)
 for instructions.
 
 ### Configure
