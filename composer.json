@@ -31,7 +31,7 @@
         }
     },
     "extra": {
-        "branch-alais": {
+        "branch-alias": {
             "1.x": "1.x-dev"
         },
         "flarum-extension": {
