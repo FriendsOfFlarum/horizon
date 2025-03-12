@@ -41,7 +41,7 @@
                 "image": "resources/logo.svg",
                 "backgroundColor": "#e74c3c",
                 "color": "#fff",
-                "backgroundSize": "90%",
+                "backgroundSize": "60%",
                 "backgroundRepeat": "no-repeat",
                 "backgroundPosition": "center"
             }
