@@ -31,57 +31,90 @@ class Stats implements RequestHandlerInterface
     /**
      * @var Repository
      */
-    private $config;
+    protected $config;
 
     /**
      * @var RedisManager
      */
-    private $redis;
+    protected $redis;
 
-    public function __construct(Repository $config, RedisManager $redis)
+    /**
+     * @var MetricsRepository
+     */
+    protected $metricsRepository;
+
+    /**
+     * @var JobRepository
+     */
+    protected $jobRepository;
+
+    /**
+     * @var WaitTimeCalculator
+     */
+    protected $waitTimeCalculator;
+
+    /**
+     * @var SupervisorRepository
+     */
+    protected $supervisorRepository;
+
+    /**
+     * @var MasterSupervisorRepository
+     */
+    protected $masterSupervisorRepository;
+
+    public function __construct(Repository $config, RedisManager $redis, MetricsRepository $metricsRepository, JobRepository $jobRepository, WaitTimeCalculator $waitTimeCalculator, SupervisorRepository $supervisorRepository, MasterSupervisorRepository $masterSupervisorRepository)
     {
         $this->config = $config;
         $this->redis = $redis;
+        $this->metricsRepository = $metricsRepository;
+        $this->jobRepository = $jobRepository;
+        $this->waitTimeCalculator = $waitTimeCalculator;
+        $this->supervisorRepository = $supervisorRepository;
+        $this->masterSupervisorRepository = $masterSupervisorRepository;
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $info = $this->getInfo();
+
         return new JsonResponse([
-            'jobsPerMinute'          => resolve(MetricsRepository::class)->jobsProcessedPerMinute(),
+            'jobsPerMinute'          => $this->metricsRepository->jobsProcessedPerMinute(),
             'processes'              => $this->totalProcessCount(),
-            'queueWithMaxRuntime'    => resolve(MetricsRepository::class)->queueWithMaximumRuntime(),
-            'queueWithMaxThroughput' => resolve(MetricsRepository::class)->queueWithMaximumThroughput(),
-            'recentlyFailed'         => resolve(JobRepository::class)->countRecentlyFailed(),
-            'recentJobs'             => resolve(JobRepository::class)->countRecent(),
+            'queueWithMaxRuntime'    => $this->metricsRepository->queueWithMaximumRuntime(),
+            'queueWithMaxThroughput' => $this->metricsRepository->queueWithMaximumThroughput(),
+            'recentlyFailed'         => $this->jobRepository->countRecentlyFailed(),
+            'recentJobs'             => $this->jobRepository->countRecent(),
             'status'                 => $this->currentStatus(),
-            'wait'                   => collect(resolve(WaitTimeCalculator::class)->calculate())->take(1),
+            'wait'                   => collect($this->waitTimeCalculator->calculate())->take(1),
             'periods'                => [
                 'recentJobs'     => $this->config->get('horizon.trim.recent'),
                 'recentlyFailed' => $this->config->get('horizon.trim.failed'),
             ],
-            'redis_stats'            => [
-                'memory_used'       => Arr::get($this->getInfo(), 'Memory.used_memory_human', 0),
-                'memory_peak'       => Arr::get($this->getInfo(), 'Memory.used_memory_peak_human', 0),
-                'memory_max'        => $this->formatMaxMemory(Arr::get($this->getInfo(), 'Memory.maxmemory_human', 0)),
-                'memory_max_policy' => Arr::get($this->getInfo(), 'Memory.maxmemory_policy', ''),
-                'cpu_user'          => Arr::get($this->getInfo(), 'CPU.used_cpu_user', 0),
-                'cpu_sys'           => Arr::get($this->getInfo(), 'CPU.used_cpu_sys', 0),
+            'redis_stats' => [
+                'memory_used'       => Arr::get($info, 'Memory.used_memory_human', '0'),
+                'memory_peak'       => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
+                'memory_max'        => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
+                'memory_max_policy' => Arr::get($info, 'Memory.maxmemory_policy', ''),
+                'ops_per_sec'       => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
+                'connected_clients' => Arr::get($info, 'Clients.connected_clients', 0),
+                'blocked_clients'   => Arr::get($info, 'Clients.blocked_clients', 0),
             ],
         ]);
     }
 
-    protected function totalProcessCount()
+    protected function totalProcessCount(): int
     {
-        $supervisors = resolve(SupervisorRepository::class)->all();
+        $supervisors = $this->supervisorRepository->all();
 
         return collect($supervisors)->reduce(function ($carry, $supervisor) {
             return $carry + collect($supervisor->processes)->sum();
         }, 0);
     }
 
-    protected function currentStatus()
+    protected function currentStatus(): string
     {
-        if (!$masters = resolve(MasterSupervisorRepository::class)->all()) {
+        if (!$masters = $this->masterSupervisorRepository->all()) {
             return 'inactive';
         }
 
