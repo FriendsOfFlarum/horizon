@@ -115,12 +115,16 @@ export default class HorizonStatsWidget extends DashboardWidget {
           app.translator.trans('fof-horizon.admin.stats.data.redis-memory-policy-tooltip'),
           'https://redis.io/docs/latest/develop/reference/eviction/'
         )}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-cpu-user'), redis_stats.cpu_user + '%')}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-cpu-sys'), redis_stats.cpu_sys + '%')}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-per-minute'), jobsPerMinute)}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-past-hour'), recentJobs)}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.failed-last-seconds'), recentlyFailed)}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.total-processes'), processes)}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-ops-per-sec'), redis_stats.ops_per_sec?.toString() ?? '0')}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.redis-connected-clients'),
+          redis_stats.connected_clients?.toString() ?? '0'
+        )}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-blocked-clients'), redis_stats.blocked_clients?.toString() ?? '0')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-per-minute'), jobsPerMinute?.toString() ?? '0')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-past-hour'), recentJobs?.toString() ?? '0')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.failed-last-seconds'), recentlyFailed?.toString() ?? '0')}
+        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.total-processes'), processes?.toString() ?? '0')}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-wait-time'), '-')}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-runtime'), queueWithMaxRuntime ?? '-')}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-throughput'), queueWithMaxThroughput ?? '-')}

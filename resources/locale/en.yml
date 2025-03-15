@@ -24,7 +24,7 @@ fof-horizon:
       trim_monitored: Trim Monitored Jobs
       trim_monitored_help: |
         This table is used to display monitored jobs in the Horizon dashboard.
-      
+
     stats:
       auto_refresh: Auto Refresh
       heading: Queue Overview
@@ -37,10 +37,11 @@ fof-horizon:
         redis-memory-policy: Redis Memory Policy
         redis-memory-policy-tooltip: |
           The memory policy is the way Redis will select what to remove when
-          the maxmemory limit is reached. The default is `noeviction`: New values 
+          the maxmemory limit is reached. The default is `noeviction`: New values
           aren’t saved when memory limit is reached. Click to view documentation.
-        redis-cpu-user: Redis CPU User
-        redis-cpu-sys: Redis CPU Sys
+        redis-ops-per-sec: Ops Per Second
+        redis-connected-clients: Connected Clients
+        redis-blocked-clients: Blocked Clients
         jobs-per-minute: Jobs Per Minute
         jobs-past-hour: Jobs Past Hour
         failed-last-seconds: Failed Jobs Past Few Seconds
