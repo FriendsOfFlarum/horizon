@@ -41,6 +41,8 @@ class Stats implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $info = $this->getInfo();
+
         return new JsonResponse([
             'failedJobs'             => $this->jobs->countRecentlyFailed(),
             'jobsPerMinute'          => $this->metrics->jobsProcessedPerMinute(),
@@ -56,12 +58,13 @@ class Stats implements RequestHandlerInterface
             'status'                 => $this->currentStatus(),
             'wait'                   => collect($this->waits->calculate())->take(1),
             'redis_stats'            => [
-                'memory_used'       => Arr::get($this->getInfo(), 'Memory.used_memory_human', 0),
-                'memory_peak'       => Arr::get($this->getInfo(), 'Memory.used_memory_peak_human', 0),
-                'memory_max'        => $this->formatMaxMemory(Arr::get($this->getInfo(), 'Memory.maxmemory_human', 0)),
-                'memory_max_policy' => Arr::get($this->getInfo(), 'Memory.maxmemory_policy', ''),
-                'cpu_user'          => Arr::get($this->getInfo(), 'CPU.used_cpu_user', 0),
-                'cpu_sys'           => Arr::get($this->getInfo(), 'CPU.used_cpu_sys', 0),
+                'memory_used'       => Arr::get($info, 'Memory.used_memory_human', '0'),
+                'memory_peak'       => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
+                'memory_max'        => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
+                'memory_max_policy' => Arr::get($info, 'Memory.maxmemory_policy', ''),
+                'ops_per_sec'       => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
+                'connected_clients' => Arr::get($info, 'Clients.connected_clients', 0),
+                'blocked_clients'   => Arr::get($info, 'Clients.blocked_clients', 0),
             ],
         ]);
     }
