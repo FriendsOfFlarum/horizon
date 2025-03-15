@@ -88,6 +88,7 @@ class HorizonServiceProvider extends Provider
             $queue = new RedisQueue($manager);
             /** @var Container $container */
             $container = resolve(Container::class);
+            // @phpstan-ignore-next-line
             $queue->setContainer($container);
 
             return $queue;

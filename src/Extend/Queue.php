@@ -23,7 +23,7 @@ class Queue implements ExtenderInterface
     private $config;
     private $connections = [];
 
-    public function extend(Container $container, Extension $extension = null): void
+    public function extend(Container $container, ?Extension $extension = null): void
     {
         /** @var Repository $repository */
         $repository = $container->make(Repository::class);
