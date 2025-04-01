@@ -49,15 +49,15 @@ class AdminContent
         // Check if this is Valkey by looking for valkey_version in the info
         if (Arr::has($info, 'Server.valkey_version')) {
             return [
-                'type' => 'Valkey',
-                'version' => Arr::get($info, 'Server.valkey_version', 'unknown')
+                'type'    => 'Valkey',
+                'version' => Arr::get($info, 'Server.valkey_version', 'unknown'),
             ];
         }
 
         // Otherwise assume it's Redis
         return [
-            'type' => 'Redis',
-            'version' => Arr::get($info, 'Server.redis_version', 'unknown')
+            'type'    => 'Redis',
+            'version' => Arr::get($info, 'Server.redis_version', 'unknown'),
         ];
     }
 }

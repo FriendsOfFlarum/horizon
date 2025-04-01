@@ -23,7 +23,7 @@ class Horizon implements ExtenderInterface
     private $config;
     private $environment;
 
-    public function extend(Container $container, Extension $extension = null)
+    public function extend(Container $container, ?Extension $extension = null)
     {
         /** @var Repository $repository */
         $repository = $container->make(Repository::class);
