@@ -31,12 +31,12 @@ fof-horizon:
       full_dashboard: Horizon Dashboard
       refresh: Refresh
       data:
-        redis-used-memory: Redis Used Memory
-        redis-peak-memory: Redis Peak Memory
-        redis-max-memory: Redis Max Memory
-        redis-memory-policy: Redis Memory Policy
+        redis-used-memory: Cache store Used Memory
+        redis-peak-memory: Cache store Peak Memory
+        redis-max-memory: Cache store Max Memory
+        redis-memory-policy: Cache store Memory Policy
         redis-memory-policy-tooltip: |
-          The memory policy is the way Redis will select what to remove when
+          The memory policy is the way the cache store will select what to remove when
           the maxmemory limit is reached. The default is `noeviction`: New values
           aren’t saved when memory limit is reached. Click to view documentation.
         redis-ops-per-sec: Ops Per Second
