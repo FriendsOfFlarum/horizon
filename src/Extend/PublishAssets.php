@@ -32,7 +32,7 @@ class PublishAssets implements LifecycleInterface, ExtenderInterface
     {
         $from = $container->make(Paths::class)->vendor.'/laravel/horizon/public';
 
-        if ($extension->name === 'blomstra/horizon') {
+        if ($extension->name === 'fof/horizon') {
             /** @var \Illuminate\Filesystem\Filesystem $localFilesystem */
             $localFilesystem = $container->make('files');
 
@@ -45,7 +45,7 @@ class PublishAssets implements LifecycleInterface, ExtenderInterface
 
     public function onDisable(Container $container, Extension $extension)
     {
-        if ($extension->name === 'blomstra/horizon') {
+        if ($extension->name === 'fof/horizon') {
             $this->resolveDisk($container)->deleteDirectory('horizon');
         }
     }

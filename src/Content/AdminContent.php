@@ -14,12 +14,15 @@
 namespace FoF\Horizon\Content;
 
 use Flarum\Frontend\Document;
+use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Support\Arr;
 use Psr\Http\Message\ServerRequestInterface;
 
 class AdminContent
 {
+    use RetrievesRedisInfo;
+    
     /**
      * @var RedisManager
      */
@@ -33,30 +36,33 @@ class AdminContent
     public function __invoke(Document $document, ServerRequestInterface $request): void
     {
         $cacheInfo = $this->getCacheInfo();
-        $document->payload['cacheStore'] = $cacheInfo['type'];
-        $document->payload['cacheVersion'] = $cacheInfo['version'];
-    }
-
-    private function getInfo(): array
-    {
-        return $this->redis->connection()->info();
+        $document->payload['cacheStore'] = Arr::get($cacheInfo, 'type');
+        $document->payload['cacheVersion'] = Arr::get($cacheInfo, 'version');
     }
 
     protected function getCacheInfo(): array
     {
         $info = $this->getInfo();
 
+        if ($error = Arr::get($info, 'error')) {
+            return [
+                'type'    => 'Error',
+                'version' => '',
+                'error'   => $error,
+            ];
+        }
+
         // Check if this is Valkey by looking for valkey_version in the info
-        if (Arr::has($info, 'Server.valkey_version')) {
+        if ($valkeyVersion = Arr::get($info, 'Server.valkey_version')) {
             return [
                 'type'    => 'Valkey',
-                'version' => Arr::get($info, 'Server.valkey_version', 'unknown'),
+                'version' => $valkeyVersion,
             ];
         }
 
         // Otherwise assume it's Redis
         return [
-            'type'    => 'Redis',
+            'type'    => $info ? 'Redis' : 'unknown',
             'version' => Arr::get($info, 'Server.redis_version', 'unknown'),
         ];
     }

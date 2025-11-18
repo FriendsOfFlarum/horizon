@@ -28,12 +28,29 @@ export default class HorizonStatsWidget extends DashboardWidget {
   async loadHorizonStats() {
     this.loading = true;
     m.redraw();
-    const data = await app.request({
-      method: 'GET',
-      url: app.forum.attribute('adminUrl') + '/horizon/api/stats',
-    });
 
-    this.data = data;
+    try {
+      const data = (await app.request({
+        method: 'GET',
+        url: app.forum.attribute('adminUrl') + '/horizon/api/stats',
+      })) as any;
+
+      this.data = data;
+
+      // If we get an error in the response, disable auto-refresh
+      if (data.error !== undefined && this.autoRefreshEnabled) {
+        this.toggleAutoRefresh(false);
+      }
+    } catch (error) {
+      console.error('Failed to load Horizon stats:', error);
+      this.data = { error: app.translator.trans('fof-horizon.admin.stats.error.fetch_failed') };
+
+      // Disable auto-refresh on network errors
+      if (this.autoRefreshEnabled) {
+        this.toggleAutoRefresh(false);
+      }
+    }
+
     this.loading = false;
     m.redraw();
   }
@@ -64,6 +81,8 @@ export default class HorizonStatsWidget extends DashboardWidget {
   }
 
   content() {
+    const hasError = this.data.error !== undefined;
+
     return (
       <div className="HorizonStatsWidget-container">
         <div className="HorizonStatsWidget-header">
@@ -84,17 +103,45 @@ export default class HorizonStatsWidget extends DashboardWidget {
               href={app.forum.attribute('adminUrl') + '/horizon'}
               target="_blank"
               external={true}
+              disabled={hasError}
             >
               {app.translator.trans('fof-horizon.admin.stats.full_dashboard')}
             </LinkButton>
           </div>
         </div>
-        <div className="HorizonStatsWidget-grid">{this.renderStatsSection()}</div>
-        <div className="HorizonStatsWidget-footer">
-          <Switch state={this.autoRefreshEnabled} onchange={this.toggleAutoRefresh.bind(this)} loading={this.loading}>
-            {app.translator.trans('fof-horizon.admin.stats.auto_refresh')}
-          </Switch>
-        </div>
+        {hasError ? this.renderError() : <div className="HorizonStatsWidget-grid">{this.renderStatsSection()}</div>}
+        {!hasError && (
+          <div className="HorizonStatsWidget-footer">
+            <Switch state={this.autoRefreshEnabled} onchange={this.toggleAutoRefresh.bind(this)} loading={this.loading}>
+              {app.translator.trans('fof-horizon.admin.stats.auto_refresh')}
+            </Switch>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  renderError() {
+    const { error } = this.data;
+
+    return (
+      <div className="HorizonStatsWidget-error Alert Alert--danger">
+        <strong>
+          {icon('fas fa-exclamation-triangle')}
+          {app.translator.trans('fof-horizon.admin.stats.error.title')}
+        </strong>
+        <p>{error}</p>
+        <p>
+          <LinkButton
+            className="Button Button--link"
+            icon="fas fa-book"
+            href="https://github.com/FriendsOfFlarum/redis?tab=readme-ov-file#set-up"
+            external={true}
+            target="_blank"
+          >
+            {app.translator.trans('fof-horizon.admin.stats.error.setup_docs')}
+          </LinkButton>
+        </p>
       </div>
     );
   }

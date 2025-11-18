@@ -91,7 +91,7 @@ return [
         ->get('/horizon', 'horizon.index', Http\Home::class)
         ->get('/horizon/{view:.*}', 'horizon.index.view', Http\Home::class),
     // Assets
-    //new Extend\PublishAssets(),
+    new Extend\PublishAssets(),
 
     (new Flarum\View())
         ->namespace('horizon', __DIR__.'/resources/views'),
