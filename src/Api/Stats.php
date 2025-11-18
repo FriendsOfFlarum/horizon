@@ -30,7 +30,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 class Stats implements RequestHandlerInterface
 {
     use RetrievesRedisInfo;
-    
+
     /**
      * @var Repository
      */

@@ -22,7 +22,7 @@ use Psr\Http\Message\ServerRequestInterface;
 class AdminContent
 {
     use RetrievesRedisInfo;
-    
+
     /**
      * @var RedisManager
      */
