@@ -15,7 +15,7 @@ namespace FoF\Horizon\Traits;
 
 trait RetrievesRedisInfo
 {
-    private function getInfo(): ?array
+    private function getInfo(): array
     {
         try {
             $connection = $this->redis->connection();
