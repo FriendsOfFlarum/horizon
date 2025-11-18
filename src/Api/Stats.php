@@ -13,6 +13,7 @@
 
 namespace FoF\Horizon\Api;
 
+use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Arr;
@@ -28,6 +29,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Stats implements RequestHandlerInterface
 {
+    use RetrievesRedisInfo;
+
     /**
      * @var Repository
      */
@@ -78,6 +81,12 @@ class Stats implements RequestHandlerInterface
     {
         $info = $this->getInfo();
 
+        if ($error = Arr::get($info, 'error')) {
+            return new JsonResponse([
+                'error' => $error,
+            ], 200);
+        }
+
         return new JsonResponse([
             'jobsPerMinute'          => $this->metricsRepository->jobsProcessedPerMinute(),
             'processes'              => $this->totalProcessCount(),
@@ -121,11 +130,6 @@ class Stats implements RequestHandlerInterface
         return collect($masters)->contains(function ($master) {
             return $master->status === 'paused';
         }) ? 'paused' : 'running';
-    }
-
-    private function getInfo(): array
-    {
-        return $this->redis->connection()->info();
     }
 
     private function formatMaxMemory(string $maxMemory): string
