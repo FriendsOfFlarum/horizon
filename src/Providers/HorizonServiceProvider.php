@@ -163,12 +163,12 @@ class HorizonServiceProvider extends Provider
         ]);
 
         Arr::set($config, 'trim', [
-            'recent'        => $settings->get('blomstra-horizon.trim.recent'),
-            'pending'       => $settings->get('blomstra-horizon.trim.pending'),
-            'completed'     => $settings->get('blomstra-horizon.trim.completed'),
-            'recent_failed' => $settings->get('blomstra-horizon.trim.recent_failed'),
-            'failed'        => $settings->get('blomstra-horizon.trim.failed'),
-            'monitored'     => $settings->get('blomstra-horizon.trim.monitored'),
+            'recent'        => $settings->get('fof-horizon.trim.recent'),
+            'pending'       => $settings->get('fof-horizon.trim.pending'),
+            'completed'     => $settings->get('fof-horizon.trim.completed'),
+            'recent_failed' => $settings->get('fof-horizon.trim.recent_failed'),
+            'failed'        => $settings->get('fof-horizon.trim.failed'),
+            'monitored'     => $settings->get('fof-horizon.trim.monitored'),
         ]);
 
         /** @var Repository $repository */
