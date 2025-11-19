@@ -87,29 +87,102 @@ class Stats implements RequestHandlerInterface
             ], 200);
         }
 
+        $recentJobs = $this->jobRepository->countRecent();
+        $recentlyFailed = $this->jobRepository->countRecentlyFailed();
+        $jobsPerMinute = $this->metricsRepository->jobsProcessedPerMinute();
+        $processes = $this->totalProcessCount();
+
+        // Calculate wait times
+        $waitTimes = collect($this->waitTimeCalculator->calculate());
+        $maxWaitTime = $waitTimes->max('minutes');
+        $maxWaitQueue = $waitTimes->where('minutes', $maxWaitTime)->first();
+
+        // Calculate memory statistics
+        $memoryUsedBytes = Arr::get($info, 'Memory.used_memory', 0);
+        $memoryMaxBytes = Arr::get($info, 'Memory.maxmemory', 0);
+        $memoryPercentage = $memoryMaxBytes > 0 ? round(($memoryUsedBytes / $memoryMaxBytes) * 100, 1) : null;
+
+        // Calculate health metrics
+        $failureRate = $recentJobs > 0 ? round(($recentlyFailed / $recentJobs) * 100, 2) : 0;
+        $successRate = $recentJobs > 0 ? round((($recentJobs - $recentlyFailed) / $recentJobs) * 100, 2) : 100;
+
         return new JsonResponse([
-            'jobsPerMinute'          => $this->metricsRepository->jobsProcessedPerMinute(),
-            'processes'              => $this->totalProcessCount(),
+            // Laravel Horizon standard fields
+            'failedJobs'             => $recentlyFailed,
+            'jobsPerMinute'          => $jobsPerMinute,
+            'pausedMasters'          => $this->totalPausedMasters(),
+            'periods'                => [
+                'failedJobs' => $this->config->get('horizon.trim.recent_failed', $this->config->get('horizon.trim.failed')),
+                'recentJobs' => $this->config->get('horizon.trim.recent'),
+            ],
+            'processes'              => $processes,
             'queueWithMaxRuntime'    => $this->metricsRepository->queueWithMaximumRuntime(),
             'queueWithMaxThroughput' => $this->metricsRepository->queueWithMaximumThroughput(),
-            'recentlyFailed'         => $this->jobRepository->countRecentlyFailed(),
-            'recentJobs'             => $this->jobRepository->countRecent(),
+            'recentJobs'             => $recentJobs,
             'status'                 => $this->currentStatus(),
-            'wait'                   => collect($this->waitTimeCalculator->calculate())->take(1),
-            'periods'                => [
-                'recentJobs'     => $this->config->get('horizon.trim.recent'),
-                'recentlyFailed' => $this->config->get('horizon.trim.failed'),
+            'wait'                   => $waitTimes->take(1),
+            // Flarum-specific: backwards compatibility for widget
+            'recentlyFailed'         => $recentlyFailed,
+            // Flarum-specific: Enhanced wait time data
+            'maxWaitTime'            => $maxWaitTime ? round($maxWaitTime, 2) : 0,
+            'maxWaitQueue'           => $maxWaitQueue ? $maxWaitQueue->name : null,
+            // Flarum-specific: Calculated health metrics
+            'failureRate'            => $failureRate,
+            'successRate'            => $successRate,
+            'healthScore'            => $this->calculateHealthScore($failureRate, $memoryPercentage, $processes),
+            // Flarum-specific: Redis stats for widget
+            'redis_stats'            => [
+                'memory_used'        => Arr::get($info, 'Memory.used_memory_human', '0'),
+                'memory_used_bytes'  => $memoryUsedBytes,
+                'memory_peak'        => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
+                'memory_max'         => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
+                'memory_max_bytes'   => $memoryMaxBytes,
+                'memory_percentage'  => $memoryPercentage,
+                'memory_max_policy'  => Arr::get($info, 'Memory.maxmemory_policy', ''),
+                'ops_per_sec'        => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
+                'connected_clients'  => Arr::get($info, 'Clients.connected_clients', 0),
+                'blocked_clients'    => Arr::get($info, 'Clients.blocked_clients', 0),
             ],
-            'redis_stats' => [
-                'memory_used'       => Arr::get($info, 'Memory.used_memory_human', '0'),
-                'memory_peak'       => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
-                'memory_max'        => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
-                'memory_max_policy' => Arr::get($info, 'Memory.maxmemory_policy', ''),
-                'ops_per_sec'       => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
-                'connected_clients' => Arr::get($info, 'Clients.connected_clients', 0),
-                'blocked_clients'   => Arr::get($info, 'Clients.blocked_clients', 0),
-            ],
+            // Timestamp for tracking data freshness
+            'timestamp'              => time(),
         ]);
+    }
+
+    /**
+     * Calculate an overall health score (0-100) based on multiple factors
+     */
+    protected function calculateHealthScore(float $failureRate, ?float $memoryPercentage, int $processes): int
+    {
+        $score = 100;
+
+        // Deduct points for high failure rate
+        if ($failureRate > 50) {
+            $score -= 50;
+        } elseif ($failureRate > 20) {
+            $score -= 30;
+        } elseif ($failureRate > 10) {
+            $score -= 15;
+        } elseif ($failureRate > 5) {
+            $score -= 5;
+        }
+
+        // Deduct points for high memory usage
+        if ($memoryPercentage !== null) {
+            if ($memoryPercentage >= 95) {
+                $score -= 30;
+            } elseif ($memoryPercentage >= 85) {
+                $score -= 20;
+            } elseif ($memoryPercentage >= 75) {
+                $score -= 10;
+            }
+        }
+
+        // Deduct points if no processes are running
+        if ($processes === 0) {
+            $score -= 50;
+        }
+
+        return max(0, $score);
     }
 
     protected function totalProcessCount(): int
@@ -127,9 +200,20 @@ class Stats implements RequestHandlerInterface
             return 'inactive';
         }
 
-        return collect($masters)->contains(function ($master) {
+        return collect($masters)->every(function ($master) {
             return $master->status === 'paused';
         }) ? 'paused' : 'running';
+    }
+
+    protected function totalPausedMasters(): int
+    {
+        if (!$masters = $this->masterSupervisorRepository->all()) {
+            return 0;
+        }
+
+        return collect($masters)->filter(function ($master) {
+            return $master->status === 'paused';
+        })->count();
     }
 
     private function formatMaxMemory(string $maxMemory): string

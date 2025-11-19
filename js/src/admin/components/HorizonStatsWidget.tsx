@@ -9,16 +9,37 @@ import Tooltip from 'flarum/common/components/Tooltip';
 import Switch from 'flarum/common/components/Switch';
 import icon from 'flarum/common/helpers/icon';
 import ItemList from 'flarum/common/utils/ItemList';
+import humanTime from 'flarum/common/utils/humanTime';
 
 export default class HorizonStatsWidget extends DashboardWidget {
   loading = true;
   data: any = {};
+  previousData: any = {};
   autoRefreshEnabled = false;
   autoRefreshInterval?: number;
+  refreshInterval = 5000; // Default 5 seconds
+  lastRefreshTime?: number;
 
   oncreate(vnode: Mithril.Vnode<IDashboardWidgetAttrs>) {
     super.oncreate(vnode);
+
+    // Load auto-refresh preference from localStorage
+    const savedAutoRefresh = localStorage.getItem('horizonAutoRefresh');
+    if (savedAutoRefresh === 'true') {
+      this.autoRefreshEnabled = true;
+    }
+
+    // Load refresh interval preference from localStorage
+    const savedInterval = localStorage.getItem('horizonRefreshInterval');
+    if (savedInterval) {
+      this.refreshInterval = parseInt(savedInterval, 10);
+    }
+
     this.loadHorizonStats();
+
+    if (this.autoRefreshEnabled) {
+      this.setAutoRefresh();
+    }
   }
 
   onremove() {
@@ -35,7 +56,13 @@ export default class HorizonStatsWidget extends DashboardWidget {
         url: app.forum.attribute('adminUrl') + '/horizon/api/stats',
       })) as any;
 
+      // Store previous data for trend comparison before updating
+      if (this.data && !this.data.error && Object.keys(this.data).length > 0) {
+        this.previousData = { ...this.data };
+      }
+
       this.data = data;
+      this.lastRefreshTime = Date.now();
 
       // If we get an error in the response, disable auto-refresh
       if (data.error !== undefined && this.autoRefreshEnabled) {
@@ -57,6 +84,9 @@ export default class HorizonStatsWidget extends DashboardWidget {
 
   toggleAutoRefresh(enabled: boolean) {
     this.autoRefreshEnabled = enabled;
+    // Persist preference
+    localStorage.setItem('horizonAutoRefresh', enabled ? 'true' : 'false');
+
     if (enabled) {
       this.setAutoRefresh();
     } else {
@@ -66,7 +96,17 @@ export default class HorizonStatsWidget extends DashboardWidget {
 
   setAutoRefresh() {
     this.clearAutoRefresh();
-    this.autoRefreshInterval = setInterval(() => this.loadHorizonStats(), 5000) as unknown as number;
+    this.autoRefreshInterval = setInterval(() => this.loadHorizonStats(), this.refreshInterval) as unknown as number;
+  }
+
+  setRefreshInterval(interval: number) {
+    this.refreshInterval = interval;
+    localStorage.setItem('horizonRefreshInterval', interval.toString());
+
+    // If auto-refresh is enabled, restart it with new interval
+    if (this.autoRefreshEnabled) {
+      this.setAutoRefresh();
+    }
   }
 
   clearAutoRefresh() {
@@ -86,7 +126,12 @@ export default class HorizonStatsWidget extends DashboardWidget {
     return (
       <div className="HorizonStatsWidget-container">
         <div className="HorizonStatsWidget-header">
-          <h4 className="HorizonStatsWidget-title">{app.translator.trans('fof-horizon.admin.stats.heading')}</h4>
+          <div className="HorizonStatsWidget-titleSection">
+            <h4 className="HorizonStatsWidget-title">
+              {icon('fas fa-chart-bar')} {app.translator.trans('fof-horizon.admin.stats.heading')}
+            </h4>
+            {this.renderLastRefresh()}
+          </div>
           <div className="HorizonStatsWidget-controls">
             <Tooltip text={app.translator.trans('fof-horizon.admin.stats.refresh')}>
               <Button
@@ -100,7 +145,7 @@ export default class HorizonStatsWidget extends DashboardWidget {
             <LinkButton
               className="Button"
               icon="fas fa-external-link-alt"
-              href={app.forum.attribute('adminUrl') + '/horizon'}
+              href={app.forum.attribute<string>('adminUrl') + '/horizon'}
               target="_blank"
               external={true}
               disabled={hasError}
@@ -112,12 +157,77 @@ export default class HorizonStatsWidget extends DashboardWidget {
         {hasError ? this.renderError() : <div className="HorizonStatsWidget-grid">{this.renderStatsSection()}</div>}
         {!hasError && (
           <div className="HorizonStatsWidget-footer">
-            <Switch state={this.autoRefreshEnabled} onchange={this.toggleAutoRefresh.bind(this)} loading={this.loading}>
-              {app.translator.trans('fof-horizon.admin.stats.auto_refresh')}
-            </Switch>
+            <div className="HorizonStatsWidget-footerLeft">
+              <Switch state={this.autoRefreshEnabled} onchange={this.toggleAutoRefresh.bind(this)} loading={this.loading}>
+                {app.translator.trans('fof-horizon.admin.stats.auto_refresh')}
+              </Switch>
+              {this.autoRefreshEnabled && this.renderRefreshIntervalSelector()}
+            </div>
+            {this.renderHealthIndicator()}
           </div>
         )}
       </div>
+    );
+  }
+
+  renderLastRefresh() {
+    if (!this.lastRefreshTime) return null;
+
+    const timeAgo = humanTime(this.lastRefreshTime);
+
+    return (
+      <small className="HorizonStatsWidget-lastRefresh">
+        {icon('fas fa-clock')} {app.translator.trans('fof-horizon.admin.stats.last_refresh', { time: timeAgo })}
+      </small>
+    );
+  }
+
+  renderRefreshIntervalSelector() {
+    const intervals = [
+      { value: 5000, label: '5s' },
+      { value: 10000, label: '10s' },
+      { value: 30000, label: '30s' },
+      { value: 60000, label: '1m' },
+    ];
+
+    return (
+      <div className="HorizonStatsWidget-intervalSelector">
+        {intervals.map((interval) => (
+          <Button
+            className={`Button Button--sm ${this.refreshInterval === interval.value ? 'active' : ''}`}
+            onclick={() => this.setRefreshInterval(interval.value)}
+          >
+            {interval.label}
+          </Button>
+        ))}
+      </div>
+    );
+  }
+
+  renderHealthIndicator() {
+    const healthScore = this.data.healthScore;
+    if (healthScore === undefined) return null;
+
+    let healthClass = 'success';
+    let healthLabel = app.translator.trans('fof-horizon.admin.stats.health.excellent');
+
+    if (healthScore < 50) {
+      healthClass = 'danger';
+      healthLabel = app.translator.trans('fof-horizon.admin.stats.health.critical');
+    } else if (healthScore < 70) {
+      healthClass = 'warning';
+      healthLabel = app.translator.trans('fof-horizon.admin.stats.health.poor');
+    } else if (healthScore < 85) {
+      healthClass = 'info';
+      healthLabel = app.translator.trans('fof-horizon.admin.stats.health.good');
+    }
+
+    return (
+      <Tooltip text={app.translator.trans('fof-horizon.admin.stats.health.tooltip', { score: healthScore })}>
+        <div className={`HorizonStatsWidget-health HorizonStatsWidget-health--${healthClass}`}>
+          {icon('fas fa-heartbeat')} {healthLabel}
+        </div>
+      </Tooltip>
     );
   }
 
@@ -147,14 +257,41 @@ export default class HorizonStatsWidget extends DashboardWidget {
   }
 
   renderStatsSection() {
-    const { jobsPerMinute, recentJobs, recentlyFailed, status, processes, queueWithMaxRuntime, queueWithMaxThroughput } = this.data;
+    const {
+      jobsPerMinute,
+      recentJobs,
+      recentlyFailed,
+      status,
+      processes,
+      queueWithMaxRuntime,
+      queueWithMaxThroughput,
+      maxWaitTime,
+      maxWaitQueue,
+      failureRate,
+      successRate,
+    } = this.data;
     const redis_stats = this.data.redis_stats ?? {};
 
     return (
       <>
         {this.renderStatusIndicator(status)}
 
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-used-memory'), redis_stats.memory_used)}
+        {/* Memory Stats with threshold warnings */}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.redis-used-memory'),
+          redis_stats.memory_used,
+          undefined,
+          undefined,
+          'memory_used_bytes'
+        )}
+        {redis_stats.memory_percentage !== null &&
+          this.renderStat(
+            app.translator.trans('fof-horizon.admin.stats.data.redis-memory-usage'),
+            `${redis_stats.memory_percentage}%`,
+            undefined,
+            undefined,
+            'memory_percentage'
+          )}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-peak-memory'), redis_stats.memory_peak)}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-max-memory'), redis_stats.memory_max ?? 'auto')}
         {this.renderStat(
@@ -164,21 +301,64 @@ export default class HorizonStatsWidget extends DashboardWidget {
           'https://redis.io/docs/latest/develop/reference/eviction/'
         )}
 
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-ops-per-sec'), redis_stats.ops_per_sec?.toString() ?? '0')}
+        {/* Redis Operational Stats */}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.redis-ops-per-sec'),
+          redis_stats.ops_per_sec?.toString() ?? '0',
+          undefined,
+          undefined,
+          'ops_per_sec'
+        )}
         {this.renderStat(
           app.translator.trans('fof-horizon.admin.stats.data.redis-connected-clients'),
           redis_stats.connected_clients?.toString() ?? '0'
         )}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.redis-blocked-clients'), redis_stats.blocked_clients?.toString() ?? '0')}
 
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-per-minute'), jobsPerMinute?.toString() ?? '0')}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.jobs-past-hour'), recentJobs?.toString() ?? '0')}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.failed-last-seconds'), recentlyFailed?.toString() ?? '0')}
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.total-processes'), processes?.toString() ?? '0')}
+        {/* Job Stats with trends */}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.jobs-per-minute'),
+          jobsPerMinute?.toString() ?? '0',
+          undefined,
+          undefined,
+          'jobsPerMinute'
+        )}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.jobs-past-hour'),
+          recentJobs?.toString() ?? '0',
+          undefined,
+          undefined,
+          'recentJobs'
+        )}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.failed-last-seconds'),
+          recentlyFailed?.toString() ?? '0',
+          undefined,
+          undefined,
+          'recentlyFailed'
+        )}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.total-processes'),
+          processes?.toString() ?? '0',
+          undefined,
+          undefined,
+          'processes'
+        )}
 
-        {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-wait-time'), '-')}
+        {/* Performance Metrics */}
+        {this.renderStat(
+          app.translator.trans('fof-horizon.admin.stats.data.max-wait-time'),
+          maxWaitTime ? `${maxWaitTime}m` : '0m',
+          maxWaitQueue ? app.translator.trans('fof-horizon.admin.stats.data.max-wait-queue', { queue: maxWaitQueue }) : undefined
+        )}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-runtime'), queueWithMaxRuntime ?? '-')}
         {this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.max-throughput'), queueWithMaxThroughput ?? '-')}
+
+        {/* Success/Failure Rates */}
+        {successRate !== undefined &&
+          this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.success-rate'), `${successRate}%`, undefined, undefined, 'successRate')}
+        {failureRate !== undefined &&
+          this.renderStat(app.translator.trans('fof-horizon.admin.stats.data.failure-rate'), `${failureRate}%`, undefined, undefined, 'failureRate')}
       </>
     );
   }
@@ -187,24 +367,100 @@ export default class HorizonStatsWidget extends DashboardWidget {
     label: NestedStringArray | string,
     value: string,
     infoLabel: NestedStringArray | string | undefined = undefined,
-    infoUrl: string | undefined = undefined
+    infoUrl: string | undefined = undefined,
+    trendKey: string | undefined = undefined
   ) {
-    return <div className="HorizonStatsWidget-stat">{this.statItems(label, value, infoLabel, infoUrl).toArray()}</div>;
+    const trend = trendKey ? this.calculateTrend(trendKey) : null;
+    const threshold = trendKey ? this.checkThreshold(trendKey, value) : null;
+
+    let statClass = 'HorizonStatsWidget-stat';
+    if (threshold) {
+      statClass += ` HorizonStatsWidget-stat--${threshold}`;
+    }
+
+    return <div className={statClass}>{this.statItems(label, value, infoLabel, infoUrl, trend, threshold).toArray()}</div>;
   }
 
   statItems(
     label: NestedStringArray | string,
     value: string,
     infoLabel: NestedStringArray | string | undefined,
-    infoUrl: string | undefined
+    infoUrl: string | undefined,
+    trend: 'up' | 'down' | null,
+    threshold: 'warning' | 'danger' | null
   ): ItemList<Mithril.Children> {
     const items = new ItemList<Mithril.Children>();
 
     items.add('label', <small>{this.labelItems(label, infoLabel, infoUrl).toArray()}</small>, 100);
 
-    items.add('value', <p>{value || !this.loading ? value : <LoadingIndicator size="small" display="inline" />}</p>, 80);
+    items.add(
+      'value',
+      <p>
+        {value || !this.loading ? value : <LoadingIndicator size="small" display="inline" />}
+        {trend && (
+          <span className={`HorizonStatsWidget-trend HorizonStatsWidget-trend--${trend}`}>
+            {icon(trend === 'up' ? 'fas fa-arrow-up' : 'fas fa-arrow-down')}
+          </span>
+        )}
+        {threshold && (
+          <span className={`HorizonStatsWidget-threshold HorizonStatsWidget-threshold--${threshold}`}>
+            {icon(threshold === 'danger' ? 'fas fa-exclamation-triangle' : 'fas fa-exclamation-circle')}
+          </span>
+        )}
+      </p>,
+      80
+    );
 
     return items;
+  }
+
+  calculateTrend(key: string): 'up' | 'down' | null {
+    if (!this.previousData || !this.previousData[key]) return null;
+
+    const redis_stats_keys = ['memory_used_bytes', 'ops_per_sec', 'memory_percentage'];
+    let currentValue: number;
+    let previousValue: number;
+
+    if (redis_stats_keys.includes(key)) {
+      currentValue = this.data.redis_stats?.[key] ?? 0;
+      previousValue = this.previousData.redis_stats?.[key] ?? 0;
+    } else {
+      currentValue = this.data[key] ?? 0;
+      previousValue = this.previousData[key] ?? 0;
+    }
+
+    if (currentValue === previousValue) return null;
+    return currentValue > previousValue ? 'up' : 'down';
+  }
+
+  checkThreshold(key: string, value: string): 'warning' | 'danger' | null {
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) return null;
+
+    // Memory percentage thresholds
+    if (key === 'memory_percentage') {
+      if (numericValue >= 90) return 'danger';
+      if (numericValue >= 75) return 'warning';
+    }
+
+    // Failure rate thresholds
+    if (key === 'failureRate') {
+      if (numericValue >= 20) return 'danger';
+      if (numericValue >= 10) return 'warning';
+    }
+
+    // Failed jobs threshold
+    if (key === 'recentlyFailed') {
+      if (numericValue >= 50) return 'danger';
+      if (numericValue >= 20) return 'warning';
+    }
+
+    // Process count threshold (0 processes is critical)
+    if (key === 'processes') {
+      if (numericValue === 0) return 'danger';
+    }
+
+    return null;
   }
 
   labelItems(

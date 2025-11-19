@@ -1,3 +1,9 @@
+// Define status colors based on Flarum's existing palette
+@horizon-success-color: #5cb85c;     // Green for success states
+@horizon-info-color: #5bc0de;        // Blue for info states
+@horizon-warning-color: #f0ad4e;     // Orange/yellow for warnings
+@horizon-danger-color: @error-color; // Use Flarum's error color for danger
+
 .HorizonStatsWidget {
     padding: 10px 0px;
 
@@ -9,9 +15,31 @@
         padding: 0 20px;
     }
 
+    &-titleSection {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
     &-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
         > .Button {
-            margin-left: 10px;
+            margin-left: 0;
+        }
+    }
+
+    &-lastRefresh {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: @muted-more-color;
+        font-size: 11px;
+
+        i {
+            font-size: 10px;
         }
     }
 
@@ -23,6 +51,7 @@
     &-title {
         padding-top: 0;
         color: @muted-color;
+        margin: 0;
     }
 
     &-grid {
@@ -42,6 +71,8 @@
         border-radius: @border-radius;
         text-align: center;
         box-shadow: 0 1px 2px @shadow-color;
+        position: relative;
+        transition: all 0.2s ease;
 
         small {
             display: block;
@@ -56,14 +87,62 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 8px;
 
             i {
-                margin-right: 8px;
+                margin-right: 0;
             }
 
             .LoadingIndicator {
-                margin-right: 8px;
+                margin-right: 0;
             }
+        }
+
+        // Warning state
+        &--warning {
+            border-left: 3px solid @horizon-warning-color;
+            background-color: fade(@horizon-warning-color, 5%);
+        }
+
+        // Danger state
+        &--danger {
+            border-left: 3px solid @horizon-danger-color;
+            background-color: fade(@horizon-danger-color, 5%);
+        }
+    }
+
+    &-trend {
+        font-size: 12px;
+        opacity: 0.7;
+
+        &--up {
+            color: @horizon-success-color;
+        }
+
+        &--down {
+            color: @horizon-info-color;
+        }
+    }
+
+    &-threshold {
+        font-size: 14px;
+        animation: pulse 2s infinite;
+
+        &--warning {
+            color: @horizon-warning-color;
+        }
+
+        &--danger {
+            color: @horizon-danger-color;
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
         }
     }
 
@@ -77,6 +156,74 @@
 
     &-footer {
         padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+
+        @media @phone {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+    &-footerLeft {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    &-intervalSelector {
+        display: flex;
+        gap: 5px;
+        margin-left: 10px;
+
+        .Button {
+            padding: 4px 8px;
+            font-size: 11px;
+            min-height: auto;
+
+            &.active {
+                background-color: @primary-color;
+                color: white;
+            }
+        }
+    }
+
+    &-health {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: @border-radius;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: help;
+
+        i {
+            font-size: 13px;
+        }
+
+        &--success {
+            background-color: fade(@horizon-success-color, 15%);
+            color: @horizon-success-color;
+        }
+
+        &--info {
+            background-color: fade(@horizon-info-color, 15%);
+            color: @horizon-info-color;
+        }
+
+        &--warning {
+            background-color: fade(@horizon-warning-color, 15%);
+            color: @horizon-warning-color;
+        }
+
+        &--danger {
+            background-color: fade(@horizon-danger-color, 15%);
+            color: @horizon-danger-color;
+        }
     }
 
     &-error {

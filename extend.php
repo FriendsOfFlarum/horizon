@@ -88,10 +88,9 @@ return [
         ->post('/horizon/api/jobs/retry/{id}', 'horizon.retry-jobs.show', Api\RetryJob::class)
         ->get('/horizon/api/jobs/{id}', 'horizon.jobs.show', Api\Job::class)
 
+        ->get('/horizon/assets/{file}', 'horizon.assets.file', Http\Asset::class)
         ->get('/horizon', 'horizon.index', Http\Home::class)
         ->get('/horizon/{view:.*}', 'horizon.index.view', Http\Home::class),
-    // Assets
-    new Extend\PublishAssets(),
 
     (new Flarum\View())
         ->namespace('horizon', __DIR__.'/resources/views'),
