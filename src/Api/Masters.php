@@ -61,12 +61,12 @@ class Masters implements RequestHandlerInterface
                     collect(ProvisioningPlan::get($name)->plan[$master->environment ?? $this->config->get('horizon.env', $this->config->get('app.env'))] ?? [])
                         ->map(function ($value, $key) use ($name) {
                             return (object) [
-                                'name' => $name.':'.$key,
-                                'master' => $name,
-                                'status' => 'inactive',
+                                'name'      => $name.':'.$key,
+                                'master'    => $name,
+                                'status'    => 'inactive',
                                 'processes' => [],
-                                'options' => [
-                                    'queue' => array_key_exists('queue', $value) && is_array($value['queue']) ? implode(',', $value['queue']) : ($value['queue'] ?? ''),
+                                'options'   => [
+                                    'queue'   => array_key_exists('queue', $value) && is_array($value['queue']) ? implode(',', $value['queue']) : ($value['queue'] ?? ''),
                                     'balance' => $value['balance'] ?? null,
                                 ],
                             ];

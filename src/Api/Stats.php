@@ -149,7 +149,7 @@ class Stats implements RequestHandlerInterface
     }
 
     /**
-     * Calculate an overall health score (0-100) based on multiple factors
+     * Calculate an overall health score (0-100) based on multiple factors.
      */
     protected function calculateHealthScore(float $failureRate, ?float $memoryPercentage, int $processes): int
     {
