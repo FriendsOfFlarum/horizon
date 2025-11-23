@@ -21,7 +21,7 @@
     },
     "require": {
         "flarum/core": "^2.0.0-beta",
-        "laravel/horizon": "^5.29.1",
+        "laravel/horizon": "^5.40.0",
         "fof/redis": "^2.0.0-beta",
         "vlucas/phpdotenv": "^5.2"
     },
@@ -65,5 +65,5 @@
     "scripts-descriptions": {
         "analyse:phpstan": "Run static analysis"
     },
-    "minimum-stability": "dev"
+    "minimum-stability": "beta"
 }

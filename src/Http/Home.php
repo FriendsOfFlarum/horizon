@@ -14,11 +14,10 @@
 namespace FoF\Horizon\Http;
 
 use Flarum\Foundation\Config;
-use Flarum\Foundation\Paths;
+use Flarum\Http\UrlGenerator;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Contracts\View\Factory;
 use Laminas\Diactoros\Response\HtmlResponse;
-use Laravel\Horizon\Horizon;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -29,26 +28,20 @@ class Home implements RequestHandlerInterface
         private Factory $view,
         private Config $config,
         private SettingsRepositoryInterface $settings,
-        private Paths $paths
+        private UrlGenerator $url
     ) {
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $csrfToken = $request->getAttribute('session')->token();
+        $horizonPath = $this->url->to('admin')->route('horizon.index');
+
         return new HtmlResponse($this->view->make('horizon::layout', [
-            'assetsAreCurrent'             => !$this->config->inDebugMode(),
-            'js'                           => $this->getFileContents('app.js'),
-            'cssApp'                       => $this->getFileContents('app.css'),
-            'cssLight'                     => $this->getFileContents('styles.css'),
-            'cssDark'                      => $this->getFileContents('styles-dark.css'),
-            'horizonScriptVariables'       => Horizon::scriptVariables(),
             'isDownForMaintenance'         => $this->config->inMaintenanceMode(),
             'forumTitle'                   => $this->settings->get('forum_title'),
+            'csrfToken'                    => $csrfToken,
+            'horizonPath'                  => $horizonPath,
         ])->render());
-    }
-
-    protected function getFileContents(string $file): string
-    {
-        return @file_get_contents($this->paths->vendor.'/laravel/horizon/dist/'.$file);
     }
 }

@@ -30,7 +30,7 @@ class Batches implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $batches = $this->batches->get(50, $request->getQueryParams()['starting_at'] ?? -1 ?: null);
+            $batches = $this->batches->get(50, $request->getQueryParams()['before_id'] ?? null);
         } catch (QueryException $e) {
             $batches = [];
         }

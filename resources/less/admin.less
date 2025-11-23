@@ -72,6 +72,111 @@
 
     &-footer {
         padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    &-footerLeft {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    &-titleSection {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    &-lastRefresh {
+        opacity: 0.7;
+        font-size: 0.9em;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+
+        i {
+            font-size: 0.9em;
+        }
+    }
+
+    &-intervalSelector {
+        display: flex;
+        gap: 5px;
+
+        .Button {
+            padding: 4px 8px;
+            font-size: 0.85em;
+            min-width: 40px;
+
+            &.active {
+                background-color: var(--primary-color);
+                color: white;
+            }
+        }
+    }
+
+    &-health {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: @border-radius;
+        font-size: 0.9em;
+        font-weight: 600;
+
+        i {
+            font-size: 1.1em;
+        }
+
+        &--success {
+            background-color: fade(#28a745, 10%);
+            color: #28a745;
+        }
+
+        &--info {
+            background-color: fade(#007bff, 10%);
+            color: #007bff;
+        }
+
+        &--warning {
+            background-color: fade(#ffc107, 10%);
+            color: #ffc107;
+        }
+
+        &--danger {
+            background-color: fade(#dc3545, 10%);
+            color: #dc3545;
+        }
+    }
+
+    &-trendUp {
+        color: var(--enabled-color);
+        font-size: 0.8em;
+        margin-right: 4px;
+        animation: trendBounce 0.5s ease;
+    }
+
+    &-trendDown {
+        color: var(--disabled-color);
+        font-size: 0.8em;
+        margin-right: 4px;
+        animation: trendBounce 0.5s ease;
+    }
+
+    &-thresholdWarning {
+        color: var(--warning-color);
+        font-size: 0.9em;
+        margin-right: 4px;
+        animation: pulse 2s infinite;
+    }
+
+    &-thresholdDanger {
+        color: var(--disabled-color);
+        font-size: 0.9em;
+        margin-right: 4px;
+        animation: pulse 1s infinite;
     }
 
     &-error {
@@ -94,6 +199,24 @@
                 opacity: 0.8;
             }
         }
+    }
+}
+
+@keyframes trendBounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
     }
 }
 
