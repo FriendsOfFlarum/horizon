@@ -12,6 +12,7 @@ import ItemList from 'flarum/common/utils/ItemList';
 export default class HorizonStatsWidget extends DashboardWidget {
   loading = true;
   data: any = {};
+  error: string | null = null;
   autoRefreshEnabled = false;
   autoRefreshInterval?: number;
 
@@ -26,14 +27,23 @@ export default class HorizonStatsWidget extends DashboardWidget {
 
   async loadHorizonStats() {
     this.loading = true;
+    this.error = null;
     m.redraw();
-    const data = await app.request({
-      method: 'GET',
-      url: app.forum.attribute('adminUrl') + '/horizon/api/stats',
-    });
 
-    this.data = data;
-    this.loading = false;
+    try {
+      const data = await app.request({
+        method: 'GET',
+        url: app.forum.attribute('adminUrl') + '/horizon/api/stats',
+      });
+
+      this.data = data;
+      this.loading = false;
+    } catch (error: any) {
+      this.error = error?.response?.error || app.translator.trans('fof-horizon.admin.stats.error.fetch_failed');
+      this.loading = false;
+      this.clearAutoRefresh();
+    }
+
     m.redraw();
   }
 
@@ -63,6 +73,10 @@ export default class HorizonStatsWidget extends DashboardWidget {
   }
 
   content() {
+    if (this.error) {
+      return this.renderError();
+    }
+
     return (
       <div className="HorizonStatsWidget-container">
         <div className="HorizonStatsWidget-header">
@@ -83,6 +97,7 @@ export default class HorizonStatsWidget extends DashboardWidget {
               href={app.forum.attribute('adminUrl') + '/horizon'}
               target="_blank"
               external={true}
+              disabled={this.error !== null}
             >
               {app.translator.trans('fof-horizon.admin.stats.full_dashboard')}
             </LinkButton>
@@ -180,6 +195,25 @@ export default class HorizonStatsWidget extends DashboardWidget {
         <p>
           <Icon name={iconClass} /> {status ? app.translator.trans(`fof-horizon.admin.stats.data.status.${status}`) : ''}
         </p>
+      </div>
+    );
+  }
+
+  renderError() {
+    return (
+      <div className="HorizonStatsWidget-error Alert Alert--danger">
+        <div className="Alert-icon">
+          <Icon name="fas fa-exclamation-triangle" />
+        </div>
+        <div className="Alert-content">
+          <h4>{app.translator.trans('fof-horizon.admin.stats.error.title')}</h4>
+          <p>{this.error}</p>
+          <p>
+            <a href="https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/" target="_blank" rel="noopener noreferrer">
+              {app.translator.trans('fof-horizon.admin.stats.error.setup_docs')}
+            </a>
+          </p>
+        </div>
       </div>
     );
   }

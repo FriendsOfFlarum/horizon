@@ -14,12 +14,15 @@
 namespace FoF\Horizon\Content;
 
 use Flarum\Frontend\Document;
+use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Support\Arr;
 use Psr\Http\Message\ServerRequestInterface;
 
 class AdminContent
 {
+    use RetrievesRedisInfo;
+
     public function __construct(
         protected RedisManager $redis
     ) {
@@ -32,14 +35,16 @@ class AdminContent
         $document->payload['cacheVersion'] = $cacheInfo['version'];
     }
 
-    private function getInfo(): array
-    {
-        return $this->redis->connection()->info();
-    }
-
     protected function getCacheInfo(): array
     {
         $info = $this->getInfo();
+
+        if (Arr::has($info, 'error')) {
+            return [
+                'type'    => 'error',
+                'version' => Arr::get($info, 'error', 'unknown'),
+            ];
+        }
 
         // Check if this is Valkey by looking for valkey_version in the info
         if (Arr::has($info, 'Server.valkey_version')) {
