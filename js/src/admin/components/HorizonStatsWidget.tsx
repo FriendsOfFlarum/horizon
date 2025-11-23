@@ -1,4 +1,3 @@
-import { NestedStringArray } from '@askvortsov/rich-icu-message-formatter';
 import app from 'flarum/admin/app';
 import DashboardWidget, { IDashboardWidgetAttrs } from 'flarum/admin/components/DashboardWidget';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -132,19 +131,14 @@ export default class HorizonStatsWidget extends DashboardWidget {
     );
   }
 
-  renderStat(
-    label: NestedStringArray | string,
-    value: string,
-    infoLabel: NestedStringArray | string | undefined = undefined,
-    infoUrl: string | undefined = undefined
-  ) {
+  renderStat(label: Mithril.Children, value: string, infoLabel: Mithril.Children | undefined = undefined, infoUrl: string | undefined = undefined) {
     return <div className="HorizonStatsWidget-stat">{this.statItems(label, value, infoLabel, infoUrl).toArray()}</div>;
   }
 
   statItems(
-    label: NestedStringArray | string,
+    label: Mithril.Children,
     value: string,
-    infoLabel: NestedStringArray | string | undefined,
+    infoLabel: Mithril.Children | undefined,
     infoUrl: string | undefined
   ): ItemList<Mithril.Children> {
     const items = new ItemList<Mithril.Children>();
@@ -156,11 +150,7 @@ export default class HorizonStatsWidget extends DashboardWidget {
     return items;
   }
 
-  labelItems(
-    label: NestedStringArray | string,
-    infoLabel: NestedStringArray | string | undefined,
-    infoUrl: string | undefined
-  ): ItemList<Mithril.Children> {
+  labelItems(label: Mithril.Children, infoLabel: Mithril.Children | undefined, infoUrl: string | undefined): ItemList<Mithril.Children> {
     const items = new ItemList<Mithril.Children>();
 
     items.add('label', <span>{label}</span>, 100);
