@@ -22,6 +22,7 @@ use Psr\Http\Message\ServerRequestInterface;
 class AdminContent
 {
     use RetrievesRedisInfo;
+
     public function __construct(
         protected RedisManager $redis
     ) {

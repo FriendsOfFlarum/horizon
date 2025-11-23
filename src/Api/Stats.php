@@ -30,6 +30,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 class Stats implements RequestHandlerInterface
 {
     use RetrievesRedisInfo;
+
     public function __construct(
         public Repository $config,
         public RedisManager $redis,
