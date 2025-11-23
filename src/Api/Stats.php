@@ -165,9 +165,10 @@ class Stats implements RequestHandlerInterface
     /**
      * Calculate health score based on various metrics.
      *
-     * @param  float  $failureRate
-     * @param  float|null  $memoryPercentage
-     * @param  string  $status
+     * @param float      $failureRate
+     * @param float|null $memoryPercentage
+     * @param string     $status
+     *
      * @return int
      */
     private function calculateHealthScore(float $failureRate, ?float $memoryPercentage, string $status): int
