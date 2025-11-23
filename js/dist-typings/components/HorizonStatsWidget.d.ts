@@ -4,6 +4,7 @@ import ItemList from 'flarum/common/utils/ItemList';
 export default class HorizonStatsWidget extends DashboardWidget {
     loading: boolean;
     data: any;
+    error: string | null;
     autoRefreshEnabled: boolean;
     autoRefreshInterval?: number;
     oncreate(vnode: Mithril.Vnode<IDashboardWidgetAttrs>): void;
@@ -19,4 +20,5 @@ export default class HorizonStatsWidget extends DashboardWidget {
     statItems(label: Mithril.Children, value: string, infoLabel: Mithril.Children | undefined, infoUrl: string | undefined): ItemList<Mithril.Children>;
     labelItems(label: Mithril.Children, infoLabel: Mithril.Children | undefined, infoUrl: string | undefined): ItemList<Mithril.Children>;
     renderStatusIndicator(status: string | null): JSX.Element;
+    renderError(): JSX.Element;
 }
