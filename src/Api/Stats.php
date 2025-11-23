@@ -49,31 +49,60 @@ class Stats implements RequestHandlerInterface
         if (Arr::has($info, 'error')) {
             return new JsonResponse([
                 'error' => Arr::get($info, 'error'),
-            ], 200);
+            ], 500);
+        }
+
+        $recentJobs = $this->jobs->countRecent();
+        $failedJobs = $this->jobs->countRecentlyFailed();
+        $wait = collect($this->waits->calculate());
+        $maxWait = $wait->max('minutes');
+        $maxWaitQueue = $wait->where('minutes', $maxWait)->first();
+
+        // Calculate success and failure rates
+        $totalJobs = $recentJobs + $failedJobs;
+        $successRate = $totalJobs > 0 ? round((($totalJobs - $failedJobs) / $totalJobs) * 100, 2) : 100;
+        $failureRate = $totalJobs > 0 ? round(($failedJobs / $totalJobs) * 100, 2) : 0;
+
+        // Calculate memory percentage
+        $memoryUsedBytes = Arr::get($info, 'Memory.used_memory', 0);
+        $memoryMaxBytes = Arr::get($info, 'Memory.maxmemory', 0);
+        $memoryPercentage = null;
+
+        if ($memoryMaxBytes > 0) {
+            $memoryPercentage = round(($memoryUsedBytes / $memoryMaxBytes) * 100, 2);
         }
 
         return new JsonResponse([
-            'failedJobs'             => $this->jobs->countRecentlyFailed(),
+            'failedJobs'             => $failedJobs,
             'jobsPerMinute'          => $this->metrics->jobsProcessedPerMinute(),
             'pausedMasters'          => $this->totalPausedMasters(),
             'periods'                => [
+                'failedJobs'     => $this->config->get('horizon.trim.recent_failed', $this->config->get('horizon.trim.failed')),
                 'recentJobs'     => $this->config->get('horizon.trim.recent'),
-                'recentlyFailed' => $this->config->get('horizon.trim.failed'),
             ],
             'processes'              => $this->totalProcessCount(),
             'queueWithMaxRuntime'    => $this->metrics->queueWithMaximumRuntime(),
             'queueWithMaxThroughput' => $this->metrics->queueWithMaximumThroughput(),
-            'recentJobs'             => $this->jobs->countRecent(),
+            'recentJobs'             => $recentJobs,
             'status'                 => $this->currentStatus(),
-            'wait'                   => collect($this->waits->calculate())->take(1),
+            'wait'                   => $wait->take(1),
+            'maxWaitTime'            => $maxWait,
+            'maxWaitQueue'           => $maxWaitQueue ? $maxWaitQueue->name : null,
+            'successRate'            => $successRate,
+            'failureRate'            => $failureRate,
+            'healthScore'            => $this->calculateHealthScore($failureRate, $memoryPercentage, $this->currentStatus()),
+            'timestamp'              => time(),
             'redis_stats'            => [
-                'memory_used'       => Arr::get($info, 'Memory.used_memory_human', '0'),
-                'memory_peak'       => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
-                'memory_max'        => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
-                'memory_max_policy' => Arr::get($info, 'Memory.maxmemory_policy', ''),
-                'ops_per_sec'       => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
-                'connected_clients' => Arr::get($info, 'Clients.connected_clients', 0),
-                'blocked_clients'   => Arr::get($info, 'Clients.blocked_clients', 0),
+                'memory_used'          => Arr::get($info, 'Memory.used_memory_human', '0'),
+                'memory_used_bytes'    => $memoryUsedBytes,
+                'memory_peak'          => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
+                'memory_max'           => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
+                'memory_max_bytes'     => $memoryMaxBytes,
+                'memory_percentage'    => $memoryPercentage,
+                'memory_max_policy'    => Arr::get($info, 'Memory.maxmemory_policy', ''),
+                'ops_per_sec'          => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
+                'connected_clients'    => Arr::get($info, 'Clients.connected_clients', 0),
+                'blocked_clients'      => Arr::get($info, 'Clients.blocked_clients', 0),
             ],
         ]);
     }
@@ -131,5 +160,48 @@ class Stats implements RequestHandlerInterface
         }
 
         return $maxMemory;
+    }
+
+    /**
+     * Calculate health score based on various metrics.
+     *
+     * @param float      $failureRate
+     * @param float|null $memoryPercentage
+     * @param string     $status
+     *
+     * @return int
+     */
+    private function calculateHealthScore(float $failureRate, ?float $memoryPercentage, string $status): int
+    {
+        $score = 100;
+
+        // Deduct points for failure rate
+        if ($failureRate > 50) {
+            $score -= 40;
+        } elseif ($failureRate > 20) {
+            $score -= 25;
+        } elseif ($failureRate > 10) {
+            $score -= 15;
+        } elseif ($failureRate > 5) {
+            $score -= 5;
+        }
+
+        // Deduct points for memory usage
+        if ($memoryPercentage !== null) {
+            if ($memoryPercentage > 90) {
+                $score -= 30;
+            } elseif ($memoryPercentage > 75) {
+                $score -= 15;
+            }
+        }
+
+        // Deduct points for inactive or paused status
+        if ($status === 'inactive') {
+            $score -= 50;
+        } elseif ($status === 'paused') {
+            $score -= 20;
+        }
+
+        return max(0, $score);
     }
 }
