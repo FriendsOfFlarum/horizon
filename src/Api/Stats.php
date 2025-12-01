@@ -93,9 +93,10 @@ class Stats implements RequestHandlerInterface
         $processes = $this->totalProcessCount();
 
         // Calculate wait times
+        // Note: calculate() returns an associative array [queue_name => wait_time_in_seconds]
         $waitTimes = collect($this->waitTimeCalculator->calculate());
-        $maxWaitTime = $waitTimes->max('minutes');
-        $maxWaitQueue = $waitTimes->where('minutes', $maxWaitTime)->first();
+        $maxWaitTime = $waitTimes->max() ?: 0;
+        $maxWaitQueue = $waitTimes->isEmpty() ? null : $waitTimes->search($maxWaitTime);
 
         // Calculate memory statistics
         $memoryUsedBytes = Arr::get($info, 'Memory.used_memory', 0);
@@ -125,7 +126,7 @@ class Stats implements RequestHandlerInterface
             'recentlyFailed'         => $recentlyFailed,
             // Flarum-specific: Enhanced wait time data
             'maxWaitTime'            => $maxWaitTime ? round($maxWaitTime, 2) : 0,
-            'maxWaitQueue'           => $maxWaitQueue ? $maxWaitQueue->name : null,
+            'maxWaitQueue'           => $maxWaitQueue ?: null,
             // Flarum-specific: Calculated health metrics
             'failureRate'            => $failureRate,
             'successRate'            => $successRate,
