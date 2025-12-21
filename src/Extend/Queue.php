@@ -20,8 +20,10 @@ use Illuminate\Contracts\Container\Container;
 
 class Queue implements ExtenderInterface
 {
-    private $config;
-    private $connections = [];
+    private ?string $config = null;
+
+    /** @var array<string, array<string, mixed>> */
+    private array $connections = [];
 
     public function extend(Container $container, ?Extension $extension = null): void
     {
@@ -52,7 +54,10 @@ class Queue implements ExtenderInterface
         return $this;
     }
 
-    public function addConnection(string $name, array $config)
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function addConnection(string $name, array $config): self
     {
         $this->connections[$name] = $config;
 

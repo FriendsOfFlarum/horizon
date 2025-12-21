@@ -112,12 +112,20 @@ class Stats implements RequestHandlerInterface
      *
      * @return int
      */
-    protected function totalProcessCount()
+    protected function totalProcessCount(): int
     {
         $supervisors = $this->supervisors->all();
 
-        return collect($supervisors)->reduce(function ($carry, $supervisor) {
-            return $carry + collect($supervisor->processes)->sum();
+        /** @var \Illuminate\Support\Collection<int, object> $supervisorsCollection */
+        $supervisorsCollection = collect($supervisors);
+
+        return $supervisorsCollection->reduce(function ($carry, $supervisor) {
+            /** @var array<int, int> $processes */
+            $processes = $supervisor->processes;
+            /** @var \Illuminate\Support\Collection<int, int> $processesCollection */
+            $processesCollection = collect($processes);
+
+            return $carry + $processesCollection->sum();
         }, 0);
     }
 
@@ -126,7 +134,7 @@ class Stats implements RequestHandlerInterface
      *
      * @return string
      */
-    protected function currentStatus()
+    protected function currentStatus(): string
     {
         if (!$masters = $this->masters->all()) {
             return 'inactive';
@@ -142,7 +150,7 @@ class Stats implements RequestHandlerInterface
      *
      * @return int
      */
-    protected function totalPausedMasters()
+    protected function totalPausedMasters(): int
     {
         if (!$masters = $this->masters->all()) {
             return 0;

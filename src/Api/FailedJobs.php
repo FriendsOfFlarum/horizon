@@ -47,14 +47,20 @@ class FailedJobs implements RequestHandlerInterface
         ]);
     }
 
-    protected function paginate(ServerRequestInterface $request)
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    protected function paginate(ServerRequestInterface $request): \Illuminate\Support\Collection
     {
         return $this->jobs->getFailed(Arr::get($request->getQueryParams(), 'starting_at', -1))->map(function ($job) {
             return $this->decode($job);
         });
     }
 
-    protected function paginateByTag(ServerRequestInterface $request, $tag)
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    protected function paginateByTag(ServerRequestInterface $request, string $tag): \Illuminate\Support\Collection
     {
         $jobIds = $this->tags->paginate(
             'failed:'.$tag,
@@ -69,7 +75,7 @@ class FailedJobs implements RequestHandlerInterface
         });
     }
 
-    protected function decode($job)
+    protected function decode(object $job): object
     {
         $job->payload = json_decode($job->payload);
 
@@ -77,7 +83,9 @@ class FailedJobs implements RequestHandlerInterface
 
         $job->context = json_decode($job->context ?? '');
 
-        $job->retried_by = collect(!is_null($job->retried_by) ? json_decode($job->retried_by) : [])
+        /** @var array<int, object> $retriedBy */
+        $retriedBy = !is_null($job->retried_by) ? json_decode($job->retried_by) : [];
+        $job->retried_by = collect($retriedBy)
             ->sortByDesc('retried_at')->values();
 
         return $job;

@@ -34,14 +34,19 @@ class Masters implements RequestHandlerInterface
         return new JsonResponse($this->index());
     }
 
-    protected function index()
+    /**
+     * @return \Illuminate\Support\Collection<string, object>
+     */
+    protected function index(): \Illuminate\Support\Collection
     {
         // Get all masters and key by name
+        /** @var \Illuminate\Support\Collection<string, object> $masters */
         $masters = collect($this->masters->all())
             ->keyBy('name')
             ->sortBy('name');
 
         // Group all supervisors by their "master" field
+        /** @var \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, object>> $supervisors */
         $supervisors = collect($this->supervisors->all())
             ->sortBy('name')
             ->groupBy('master');
@@ -51,27 +56,29 @@ class Masters implements RequestHandlerInterface
             // Get the supervisors for this master from the repository (or an empty collection)
             $collection = $supervisors->get($masterName, collect());
             // Merge in the provisioning plan supervisors, which have a default inactive status.
+            /** @var array<string, mixed> $planConfig */
+            $planConfig = ProvisioningPlan::get($masterName)
+                ->plan[$master->environment ?? config('horizon.env') ?? config('app.env')] ?? [];
+
+            $planSupervisors = collect($planConfig)
+                ->map(function ($value, $key) use ($masterName) {
+                    return (object) [
+                        'name'      => "{$masterName}:{$key}",
+                        'master'    => $masterName,
+                        'status'    => 'inactive',
+                        'processes' => [],
+                        'options'   => [
+                            'queue'   => array_key_exists('queue', $value) && is_array($value['queue'])
+                                ? implode(',', $value['queue'])
+                                : ($value['queue'] ?? ''),
+                            'balance' => $value['balance'] ?? null,
+                        ],
+                    ];
+                })
+                ->values();
+
             $master->supervisors = $collection
-                ->merge(
-                    collect(
-                        ProvisioningPlan::get($masterName)
-                            ->plan[$master->environment ?? config('horizon.env') ?? config('app.env')] ?? []
-                    )
-                        ->map(function ($value, $key) use ($masterName) {
-                            return (object) [
-                                'name'      => "{$masterName}:{$key}",
-                                'master'    => $masterName,
-                                'status'    => 'inactive',
-                                'processes' => [],
-                                'options'   => [
-                                    'queue'   => array_key_exists('queue', $value) && is_array($value['queue'])
-                                        ? implode(',', $value['queue'])
-                                        : ($value['queue'] ?? ''),
-                                    'balance' => $value['balance'] ?? null,
-                                ],
-                            ];
-                        })
-                )
+                ->merge($planSupervisors->all())
                 ->unique('name')
                 ->values();
         });

@@ -3,6 +3,52 @@ import ExtensionPage from 'flarum/admin/components/ExtensionPage';
 import LinkButton from 'flarum/common/components/LinkButton';
 
 export default class SettingsPage extends ExtensionPage {
+  static register() {
+    app.registry.for('fof-horizon');
+
+    app.registry.registerSetting({
+      type: 'number',
+      setting: 'fof-horizon.trim.recent',
+      label: app.translator.trans('fof-horizon.admin.settings.trim_recent'),
+      help: app.translator.trans('fof-horizon.admin.settings.trim_recent_help'),
+    });
+
+    app.registry.registerSetting({
+      type: 'number',
+      setting: 'fof-horizon.trim.pending',
+      label: app.translator.trans('fof-horizon.admin.settings.trim_pending'),
+      help: app.translator.trans('fof-horizon.admin.settings.trim_pending_help'),
+    });
+
+    app.registry.registerSetting({
+      type: 'number',
+      setting: 'fof-horizon.trim.completed',
+      label: app.translator.trans('fof-horizon.admin.settings.trim_completed'),
+      help: app.translator.trans('fof-horizon.admin.settings.trim_completed_help'),
+    });
+
+    app.registry.registerSetting({
+      type: 'number',
+      setting: 'fof-horizon.trim.recent_failed',
+      label: app.translator.trans('fof-horizon.admin.settings.trim_recent_failed'),
+      help: app.translator.trans('fof-horizon.admin.settings.trim_recent_failed_help'),
+    });
+
+    app.registry.registerSetting({
+      type: 'number',
+      setting: 'fof-horizon.trim.failed',
+      label: app.translator.trans('fof-horizon.admin.settings.trim_failed'),
+      help: app.translator.trans('fof-horizon.admin.settings.trim_failed_help'),
+    });
+
+    app.registry.registerSetting({
+      type: 'number',
+      setting: 'fof-horizon.trim.monitored',
+      label: app.translator.trans('fof-horizon.admin.settings.trim_monitored'),
+      help: app.translator.trans('fof-horizon.admin.settings.trim_monitored_help'),
+    });
+  }
+
   content() {
     const horizonUrl = app.forum.attribute('adminUrl') + '/horizon';
     return (
