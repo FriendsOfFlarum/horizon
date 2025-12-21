@@ -35,7 +35,7 @@ class FailedJob implements RequestHandlerInterface
         })->first());
     }
 
-    protected function decode($job)
+    protected function decode(object $job): object
     {
         $job->payload = json_decode($job->payload);
 
@@ -43,7 +43,9 @@ class FailedJob implements RequestHandlerInterface
 
         $job->context = json_decode($job->context ?? '');
 
-        $job->retried_by = collect(!is_null($job->retried_by) ? json_decode($job->retried_by) : [])
+        /** @var array<int, object> $retriedBy */
+        $retriedBy = !is_null($job->retried_by) ? json_decode($job->retried_by) : [];
+        $job->retried_by = collect($retriedBy)
             ->sortByDesc('retried_at')->values();
 
         return $job;

@@ -20,8 +20,11 @@ use Illuminate\Contracts\Container\Container;
 
 class Horizon implements ExtenderInterface
 {
-    private $config;
-    private $environment;
+    /** @var array<string, mixed>|null */
+    private ?array $config = null;
+
+    /** @var array<string, mixed>|null */
+    private ?array $environment = null;
 
     public function extend(Container $container, ?Extension $extension = null): void
     {

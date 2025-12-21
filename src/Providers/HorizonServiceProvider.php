@@ -66,7 +66,7 @@ class HorizonServiceProvider extends Provider
         parent::boot();
     }
 
-    protected function registerNotificationDispatcher()
+    protected function registerNotificationDispatcher(): void
     {
         if (!$this->app->bound(Notifications::class)) {
             $this->app->singleton(Notifications::class, function () {
@@ -107,11 +107,20 @@ class HorizonServiceProvider extends Provider
                     return resolve('cache.store');
                 }
 
+                /**
+                 * @param string|null $driver
+                 * @return mixed
+                 */
                 public function driver($driver = null)
                 {
                     return $this->store($driver);
                 }
 
+                /**
+                 * @param string $name
+                 * @param array<int, mixed> $arguments
+                 * @return mixed
+                 */
                 public function __call($name, $arguments)
                 {
                     return call_user_func_array([$this->store(), $name], $arguments);
@@ -130,7 +139,7 @@ class HorizonServiceProvider extends Provider
         });
     }
 
-    protected function setupConfiguration($container)
+    protected function setupConfiguration(Container $container): void
     {
         /** @var Paths $paths */
         $paths = resolve(Paths::class);
@@ -195,7 +204,7 @@ class HorizonServiceProvider extends Provider
         parent::registerEvents();
     }
 
-    public function defineAssetPublishing()
+    public function defineAssetPublishing(): void
     {
     }
 
