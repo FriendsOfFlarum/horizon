@@ -109,6 +109,7 @@ class HorizonServiceProvider extends Provider
 
                 /**
                  * @param string|null $driver
+                 *
                  * @return mixed
                  */
                 public function driver($driver = null)
@@ -117,8 +118,9 @@ class HorizonServiceProvider extends Provider
                 }
 
                 /**
-                 * @param string $name
+                 * @param string            $name
                  * @param array<int, mixed> $arguments
+                 *
                  * @return mixed
                  */
                 public function __call($name, $arguments)

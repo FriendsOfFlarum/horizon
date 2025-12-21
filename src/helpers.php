@@ -16,6 +16,7 @@ use Illuminate\Contracts\Config\Repository;
 if (!function_exists('config')) {
     /**
      * @param mixed $default
+     *
      * @return mixed
      */
     function config(string $key, $default = null)

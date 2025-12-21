@@ -124,6 +124,7 @@ class Stats implements RequestHandlerInterface
             $processes = $supervisor->processes;
             /** @var \Illuminate\Support\Collection<int, int> $processesCollection */
             $processesCollection = collect($processes);
+
             return $carry + $processesCollection->sum();
         }, 0);
     }
