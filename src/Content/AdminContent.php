@@ -33,6 +33,11 @@ class AdminContent
         $cacheInfo = $this->getCacheInfo();
         $document->payload['cacheStore'] = $cacheInfo['type'];
         $document->payload['cacheVersion'] = $cacheInfo['version'];
+
+        $queueDriverString = Arr::get($document->payload, 'queueDriver');
+        if ($queueDriverString === 'redis') {
+            $document->payload['queueDriver'] = 'Redis + Horizon';
+        }
     }
 
     protected function getCacheInfo(): array
