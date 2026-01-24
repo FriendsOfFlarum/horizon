@@ -37,7 +37,6 @@ return [
         ->default('fof-horizon.trim.monitored', 10080),
 
     (new Flarum\ServiceProvider())
-        // @phpstan-ignore-next-line
         ->register(Providers\HorizonServiceProvider::class),
 
     (new Flarum\Console())
