@@ -17,7 +17,8 @@
     ],
     "support": {
         "issues": "https://github.com/FriendsOfFlarum/horizon/issues",
-        "source": "https://github.com/FriendsOfFlarum/horizon"
+        "source": "https://github.com/FriendsOfFlarum/horizon",
+        "forum": "https://discuss.flarum.org/d/37227-friendsofflarum-horizon"
     },
     "require": {
         "php": "^8.1",
