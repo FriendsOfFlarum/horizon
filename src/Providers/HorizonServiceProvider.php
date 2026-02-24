@@ -63,7 +63,13 @@ class HorizonServiceProvider extends Provider
         $this->registerQueueConnectors();
         $this->registerNotificationDispatcher();
 
-        parent::boot();
+        // We intentionally do not call parent::boot() here.
+        // laravel/horizon v5.45.0 introduced an inline Route::middlewareGroup() call at the
+        // top of parent::boot() which uses the Route facade. Flarum never sets a facade root,
+        // so this throws "A facade root has not been set." instead of calling parent::boot()
+        // we replicate only the two calls that fof/horizon actually needs.
+        $this->normalizeConfig();
+        $this->registerEvents();
     }
 
     protected function registerNotificationDispatcher(): void
