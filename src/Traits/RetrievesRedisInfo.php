@@ -20,12 +20,37 @@ trait RetrievesRedisInfo
     /**
      * Retrieves Redis info with error handling.
      *
+     * phpredis returns a flat array from `info()`, while Predis returns a nested
+     * array keyed by section name (e.g. `['Memory' => [...]]`). Stats.php uses
+     * dot-notation lookups like `Arr::get($info, 'Memory.maxmemory_policy')` which
+     * require the nested format. Normalise the flat phpredis output into sections.
+     *
      * @return array
      */
     protected function getInfo(): array
     {
         try {
-            return $this->redis->connection()->info();
+            $connection = $this->redis->connection();
+            $info = $connection->info();
+
+            // If already nested (Predis-style), return as-is.
+            if (isset($info['Memory']) && is_array($info['Memory'])) {
+                return $info;
+            }
+
+            // phpredis returns a flat array — rebuild into section-keyed structure
+            // by fetching each section individually.
+            $sections = ['server', 'clients', 'memory', 'stats', 'replication', 'cpu', 'keyspace'];
+            $nested = [];
+
+            foreach ($sections as $section) {
+                $sectionData = $connection->info($section);
+                if (is_array($sectionData) && !empty($sectionData)) {
+                    $nested[ucfirst($section)] = $sectionData;
+                }
+            }
+
+            return $nested;
         } catch (Exception $e) {
             return [
                 'error' => 'Redis connection failed: '.$e->getMessage(),
