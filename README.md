@@ -424,14 +424,41 @@ sudo supervisorctl restart horizon
 
 ### Memory issues
 
-**Issue:** Workers consuming too much memory
+**Issue:** Workers consuming too much memory, or you see `Memory limit exceeded: Using X/128MB. Consider increasing horizon.memory_limit.`
 
-**Solution:** Adjust memory limits in your Horizon config:
+There are two separate memory limits:
+
+- **`memory_limit`** — the master supervisor process. When exceeded, Horizon restarts itself gracefully. Default: 128 MB.
+- **`memory`** (per supervisor) — each individual worker process. When exceeded after a job completes, the worker is recycled. Default: 128 MB.
+
+**Solution:** Override either limit via `config.php`:
+
+```php
+'horizon' => [
+    'memory_limit' => 256, // MB — master supervisor
+],
+```
+
+Or via the `Horizon` extender in `extend.php`:
+
+```php
+(new \FoF\Horizon\Extend\Horizon)->config([
+    'memory_limit' => 256, // MB — master supervisor
+    'environments' => [
+        'production' => [
+            'supervisor-1' => [
+                'memory' => 256, // MB — per worker
+            ],
+        ],
+    ],
+]),
+```
+
+You can also limit how long a worker runs before being recycled:
 
 ```php
 'defaults' => [
     'supervisor-1' => [
-        'memory' => 128, // MB
         'maxJobs' => 1000, // Restart after X jobs
         'maxTime' => 3600, // Restart after X seconds
     ],
