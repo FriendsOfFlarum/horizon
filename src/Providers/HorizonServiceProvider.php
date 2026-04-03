@@ -170,6 +170,8 @@ class HorizonServiceProvider extends Provider
         Arr::set($config, 'env', $env);
         Arr::set($config, 'path', trim($path, '/').'/horizon');
         Arr::set($config, 'use', 'horizon');
+        Arr::set($config, 'memory_limit', 128);
+
         Arr::set($config, 'environments', [
             $env => [
                 'supervisor-1' => [
@@ -178,6 +180,7 @@ class HorizonServiceProvider extends Provider
                     'balance'    => 'auto',
                     'processes'  => 4,
                     'tries'      => 3,
+                    'memory'     => 128,
                 ],
             ],
         ]);
