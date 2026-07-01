@@ -386,13 +386,27 @@ export default class HorizonStatsWidget extends DashboardWidget {
   }
 
   renderStatusIndicator(status: string | null) {
-    const iconClass = status === 'running' ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-danger';
+    // While the first stats request is still in flight the status is unknown —
+    // show a neutral "checking" state rather than a red "inactive", which made a
+    // perfectly healthy Horizon appear down until the request resolved.
+    const checking = this.loading && !status;
+
+    let iconClass = 'fas fa-times-circle text-danger';
+    if (checking) iconClass = 'fas fa-circle-notch fa-spin';
+    else if (status === 'running') iconClass = 'fas fa-check-circle text-success';
+    else if (status === 'paused') iconClass = 'fas fa-pause-circle text-warning';
+
+    const label = checking
+      ? app.translator.trans('fof-horizon.admin.stats.data.status.checking')
+      : status
+      ? app.translator.trans(`fof-horizon.admin.stats.data.status.${status}`)
+      : '';
 
     return (
       <div className="HorizonStatsWidget-stat">
         <small>{app.translator.trans('fof-horizon.admin.stats.data.status.label')}</small>
         <p>
-          <Icon name={iconClass} /> {status ? app.translator.trans(`fof-horizon.admin.stats.data.status.${status}`) : ''}
+          <Icon name={iconClass} /> {label}
         </p>
       </div>
     );

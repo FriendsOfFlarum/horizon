@@ -61,6 +61,8 @@ fof-horizon:
           label: Status
           running: Running
           inactive: Inactive
+          paused: Paused
+          checking: Checking…
         total-processes: Total Processes
         max-wait-time: Max Wait Time
         max-wait-queue: "Queue: {queue}"
