@@ -8,7 +8,6 @@ jobs:
     with:
       enable_backend_testing: true
       enable_redis: true
-      redis_variant: valkey
       enable_phpstan: true
 
       backend_directory: .
