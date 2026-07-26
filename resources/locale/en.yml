@@ -53,45 +53,59 @@ fof-horizon:
         Memory limit for the Horizon master supervisor process.
 
     stats:
-      auto_refresh: Auto Refresh
-      heading: Queue Overview
+      queue_heading: Queue
+      kv_heading: Key-Value Store
       full_dashboard: Horizon Dashboard
+      auto_refresh: Auto Refresh
       refresh: Refresh
-      last_refresh: "Last refresh: {time}"
       error:
         title: Connection Error
         fetch_failed: Unable to fetch Horizon statistics. Please check your Redis configuration.
         setup_docs: View Redis Setup Documentation
+      eviction_pressure: memory pressure
+      eviction_policy_tooltip: >-
+        The eviction policy is how the store selects what to remove when the
+        maxmemory limit is reached. The default is `noeviction`: new values
+        aren't saved when the memory limit is reached. Click to view
+        documentation.
+      eviction_warning: >-
+        Memory usage is at {usage}% of maxmemory and the eviction policy is
+        "{policy}", so keys — potentially including queue data — may be
+        evicted soon. Increase maxmemory or move the queue to a dedicated
+        database with more headroom.
       health:
         excellent: Excellent
         good: Good
         poor: Poor
         critical: Critical
-        tooltip: "System health score: {score}/100"
+        tooltip_heading: "Health score: {score}/100"
+        factor:
+          status: "Horizon is {value}"
+          wait: "Long queue wait: {value}"
+          memory: "Redis memory pressure: {value}"
+      status:
+        running: Running
+        paused: Paused
+        inactive: Inactive
+      period:
+        minutes: "past {count} min"
+        hour: past hour
+        hours: "past {count} hours"
+        day: past day
+        days: "past {count} days"
       data:
-        redis-used-memory: Cache store Used Memory
-        redis-peak-memory: Cache store Peak Memory
-        redis-max-memory: Cache store Max Memory
-        redis-memory-usage: Cache store Memory Usage
-        redis-memory-policy: Cache store Memory Policy
-        redis-memory-policy-tooltip: |
-          The memory policy is the way the cache store will select what to remove when
-          the maxmemory limit is reached. The default is `noeviction`: New values
-          aren't saved when memory limit is reached. Click to view documentation.
-        redis-ops-per-sec: Ops Per Second
-        redis-connected-clients: Connected Clients
-        redis-blocked-clients: Blocked Clients
+        processes: Worker Processes
         jobs-per-minute: Jobs Per Minute
-        jobs-past-hour: Jobs Past Hour
-        failed-last-seconds: Failed Jobs Past Few Seconds
-        status:
-          label: Status
-          running: Running
-          inactive: Inactive
-        total-processes: Total Processes
-        max-wait-time: Max Wait Time
-        max-wait-queue: "Queue: {queue}"
-        max-runtime: Max Runtime
-        max-throughput: Max Throughput
-        success-rate: Success Rate
-        failure-rate: Failure Rate
+        pending-jobs: Pending Jobs
+        recent-jobs: Jobs
+        failed-jobs: Failed Jobs
+        max-wait: Max Wait
+        slowest-queue: Slowest Queue
+        highest-throughput-queue: Busiest Queue
+        memory-used: Memory Used
+        memory-peak: Memory Peak
+        memory-max: Max Memory
+        ops-per-sec: Ops Per Second
+        connected-clients: Connected Clients
+        blocked-clients: Blocked Clients
+        eviction-policy: Eviction Policy
