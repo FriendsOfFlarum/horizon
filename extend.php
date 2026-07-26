@@ -34,7 +34,13 @@ return [
         ->default('fof-horizon.trim.completed', 60)
         ->default('fof-horizon.trim.recent_failed', 10080)
         ->default('fof-horizon.trim.failed', 10080)
-        ->default('fof-horizon.trim.monitored', 10080),
+        ->default('fof-horizon.trim.monitored', 10080)
+        ->default('fof-horizon.supervisor.processes', 4)
+        ->default('fof-horizon.supervisor.memory', 128)
+        ->default('fof-horizon.supervisor.tries', 3)
+        ->default('fof-horizon.supervisor.queues', 'default')
+        ->default('fof-horizon.supervisor.balance', 'auto')
+        ->default('fof-horizon.memory_limit', 128),
 
     (new Flarum\ServiceProvider())
         ->register(Providers\HorizonServiceProvider::class),
@@ -52,7 +58,7 @@ return [
         ->command(Laravel\SupervisorCommand::class)
         ->command(Laravel\SupervisorsCommand::class)
         ->command(Laravel\SupervisorStatusCommand::class)
-        ->command(Laravel\TerminateCommand::class)
+        ->command(Console\TerminateCommand::class)
         ->command(Laravel\TimeoutCommand::class)
         ->command(Laravel\ForgetFailedCommand::class)
         ->command(Console\WorkCommand::class)

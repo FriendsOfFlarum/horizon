@@ -16,8 +16,10 @@ namespace FoF\Horizon\Providers;
 use Flarum\Foundation\Config;
 use Flarum\Foundation\Paths;
 use Flarum\Http\UrlGenerator;
+use Flarum\Queue\DatabaseUuidFailedJobProvider;
 use Flarum\Settings\SettingsRepositoryInterface;
 use FoF\Horizon\Dispatcher\Notifier;
+use FoF\Horizon\LayeredConfig;
 use FoF\Horizon\Overrides\RedisQueue;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Bus\BatchFactory;
@@ -97,7 +99,28 @@ class HorizonServiceProvider extends Provider
             // @phpstan-ignore-next-line
             $queue->setContainer($container);
 
+            // Give the connection a name so events that carry it (e.g.
+            // WorkerIdle) receive a string rather than null — illuminate/queue
+            // 13.15.0 type-hinted WorkerIdle::$connectionName as string, so a
+            // null name throws a TypeError in the worker loop.
+            $queue->setConnectionName('redis');
+
             return $queue;
+        });
+
+        // Core binds a NullFailedJobProvider for non-database queues, which
+        // silently discards failed jobs and makes the queue:retry/queue:failed
+        // commands no-ops. Persist failures like core's database driver does.
+        $this->app->extend('queue.failer', function ($failer, Container $container) {
+            /** @var Config $config */
+            $config = $container->make(Config::class);
+
+            return new DatabaseUuidFailedJobProvider(
+                $container->make('db'),
+                $config['database']['database'] ?? '',
+                'queue_failed_jobs',
+                $container->make('db.connection')
+            );
         });
 
         $this->app->afterResolving(Factory::class, function (RedisManager $manager) {
@@ -167,42 +190,51 @@ class HorizonServiceProvider extends Provider
 
         $path = (new Uri($url->to('admin')->base()))->getPath();
 
+        // Every tunable below resolves through the supported configuration
+        // layers, highest precedence first: environment variables
+        // (FOF_HORIZON_*), config.php ('horizon' key), admin settings,
+        // then the baked-in default.
+        $layered = new LayeredConfig($settings, $flarumConfig);
+
         Arr::set($config, 'env', $env);
         Arr::set($config, 'path', trim($path, '/').'/horizon');
         Arr::set($config, 'use', 'horizon');
-        Arr::set($config, 'memory_limit', 128);
+        Arr::set($config, 'memory_limit', $layered->integer('memory_limit', 128));
 
         Arr::set($config, 'environments', [
             $env => [
                 'supervisor-1' => [
                     'connection' => 'redis',
-                    'queue'      => ['default'],
-                    'balance'    => 'auto',
-                    'processes'  => 4,
-                    'tries'      => 3,
-                    'memory'     => 128,
+                    'queue'      => $layered->list('supervisor.queues', ['default']),
+                    'balance'    => $layered->string('supervisor.balance', 'auto'),
+                    'processes'  => $layered->integer('supervisor.processes', 4),
+                    'tries'      => $layered->integer('supervisor.tries', 3),
+                    'memory'     => $layered->integer('supervisor.memory', 128),
                 ],
             ],
         ]);
 
         Arr::set($config, 'trim', [
-            'recent'        => $settings->get('fof-horizon.trim.recent'),
-            'pending'       => $settings->get('fof-horizon.trim.pending'),
-            'completed'     => $settings->get('fof-horizon.trim.completed'),
-            'recent_failed' => $settings->get('fof-horizon.trim.recent_failed'),
-            'failed'        => $settings->get('fof-horizon.trim.failed'),
-            'monitored'     => $settings->get('fof-horizon.trim.monitored'),
+            'recent'        => $layered->integer('trim.recent', 60),
+            'pending'       => $layered->integer('trim.pending', 60),
+            'completed'     => $layered->integer('trim.completed', 60),
+            'recent_failed' => $layered->integer('trim.recent_failed', 10080),
+            'failed'        => $layered->integer('trim.failed', 10080),
+            'monitored'     => $layered->integer('trim.monitored', 10080),
         ]);
 
         /** @var Repository $repository */
         $repository = $container->make(Repository::class);
 
-        $flarumConfig = $container->make('flarum.config') ?? [];
+        $rawFlarumConfig = $container->make('flarum.config') ?? [];
 
         // Load existing config items and merge these with a possible key in the config.php.
         // Precedence: existing keys from local extenders, config.php and the default horizon.php.
+        // The supervisor and trim keys are consumed per-value by LayeredConfig
+        // above, so they are excluded from this wholesale merge — otherwise a
+        // partial config.php override would clobber the assembled sections.
         $existing = $repository->get('horizon', []);
-        $config = array_merge($config, $flarumConfig['horizon'] ?? [], $existing);
+        $config = array_merge($config, Arr::except($rawFlarumConfig['horizon'] ?? [], ['supervisor', 'trim']), $existing);
 
         $repository->set(['horizon' => $config]);
     }

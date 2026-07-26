@@ -32,7 +32,9 @@ class Queue implements ExtenderInterface
 
         if ($path = $this->config) {
             $config = include $path;
-            $repository->set('queue', array_merge($repository->get('queue', $config)));
+            // Keys already present (from other extenders or core) win, but
+            // keys only defined in the config file must still be applied.
+            $repository->set('queue', array_merge($config, $repository->get('queue', [])));
         }
 
         foreach ($this->connections as $name => $config) {

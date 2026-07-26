@@ -26,6 +26,8 @@ class WorkCommand extends \Laravel\Horizon\Console\WorkCommand
         /** @var Config $config */
         $config = $this->laravel->make(Config::class);
 
-        return $config->inMaintenanceMode();
+        // Match core's queue worker semantics: the queue keeps running in low
+        // and safe maintenance modes, and only pauses in high maintenance.
+        return $config->inHighMaintenanceMode();
     }
 }
