@@ -19,7 +19,6 @@ A comprehensive queue management solution for Flarum, powered by [Laravel Horizo
 
 - **Flarum 2.0+**
 - **Redis Server** (required for Horizon to function)
-- **PHP 8.2+**
 
 ## Installation
 
@@ -124,6 +123,55 @@ return [
     ]),
 ];
 ```
+
+### Configuration Layers
+
+The most common tunables can be set in three places. Higher layers override
+lower ones, so operators can pin values per deployment without touching the
+database:
+
+1. **Environment variables** (highest) — ideal for Docker/Kubernetes
+2. **config.php** — under the `horizon` key
+3. **Admin settings UI** — Administration → Horizon
+4. Built-in defaults (lowest)
+
+| Setting | Admin UI / setting key | config.php (`horizon.` key) | Environment variable | Default |
+|---|---|---|---|---|
+| Worker processes | `fof-horizon.supervisor.processes` | `supervisor.processes` | `FOF_HORIZON_PROCESSES` | 4 |
+| Worker memory (MB) | `fof-horizon.supervisor.memory` | `supervisor.memory` | `FOF_HORIZON_MEMORY` | 128 |
+| Job tries | `fof-horizon.supervisor.tries` | `supervisor.tries` | `FOF_HORIZON_TRIES` | 3 |
+| Queues (comma-separated) | `fof-horizon.supervisor.queues` | `supervisor.queues` | `FOF_HORIZON_QUEUES` | `default` |
+| Balance strategy | `fof-horizon.supervisor.balance` | `supervisor.balance` | `FOF_HORIZON_BALANCE` | `auto` |
+| Master memory limit (MB) | `fof-horizon.memory_limit` | `memory_limit` | `FOF_HORIZON_MEMORY_LIMIT` | 128 |
+| Trim settings (minutes) | `fof-horizon.trim.*` | `trim.*` | `FOF_HORIZON_TRIM_*` | 60 / 10080 |
+
+Example `config.php`:
+
+```php
+'horizon' => [
+    'supervisor' => [
+        'processes' => 10,
+        'memory'    => 256,
+        'queues'    => ['default', 'media'],
+    ],
+    'memory_limit' => 256,
+],
+```
+
+Example environment variables:
+
+```bash
+FOF_HORIZON_PROCESSES=10
+FOF_HORIZON_MEMORY=256
+FOF_HORIZON_QUEUES=default,media
+```
+
+> **Note:** Supervisor settings are read when Horizon starts. Restart Horizon
+> (`php flarum horizon:terminate`) after changing them.
+
+If your extensions route jobs onto named queues (core's
+`AbstractJob::$onQueue`), add those queue names to the queues list — workers
+only consume the queues configured here.
 
 ### Customizing Horizon Configuration
 
@@ -322,6 +370,10 @@ php flarum horizon:supervisor-status supervisor-1
 php flarum horizon:terminate
 ```
 
+The terminate signal is broadcast through Redis, so it reaches Horizon
+wherever it runs — including a different container or host than the one the
+command is issued from.
+
 **Clear all jobs from a queue:**
 
 ```bash
@@ -408,19 +460,22 @@ tail -f storage/logs/flarum-*.log
 
 **Issue:** Code changes not reflected in running workers
 
-**Solution:** Always terminate and restart Horizon after deployments:
+**Solution:** For code-only deployments, gracefully recycle the worker
+processes — the Horizon master stays up and respawns them with the new code:
+
+```bash
+php flarum queue:restart
+```
+
+If Horizon's own configuration changed (supervisor settings, queues, memory
+limits), restart the master instead:
 
 ```bash
 php flarum horizon:terminate
-# Wait a few seconds for graceful shutdown
-php flarum horizon
+# Your process monitor (Supervisor/systemd/container runtime) restarts it
 ```
 
-Or via Supervisor:
-
-```bash
-sudo supervisorctl restart horizon
-```
+Both signals travel via Redis/cache, so they work across containers.
 
 ### Memory issues
 
