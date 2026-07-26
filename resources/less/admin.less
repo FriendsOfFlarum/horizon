@@ -1,222 +1,134 @@
-.HorizonStatsWidget {
-    padding: 10px 0px;
+.HorizonWidget {
+    padding: 0;
 
     &-header {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
-        padding: 0 20px;
-    }
-
-    &-controls {
-        > .Button {
-            margin-left: 10px;
-        }
-    }
-
-    &-switch {
-        display: inline;
-        padding-left: 0;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 16px 20px 12px;
     }
 
     &-title {
-        padding-top: 0;
-    }
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted-color);
 
-    &-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 25px;
-        margin: 0 20px;
-
-        @media @phone {
-            grid-template-columns: 1fr;
+        .icon {
+            font-size: 12px;
+            opacity: 0.7;
         }
     }
 
-    &-stat {
-        padding: 15px;
-        border-radius: @border-radius;
-        text-align: center;
-
-        small {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        p {
-            margin: 0;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            i {
-                margin-right: 8px;
-            }
-
-            .LoadingIndicator {
-                margin-right: 8px;
-            }
-        }
+    &-version {
+        font-weight: normal;
+        opacity: 0.7;
     }
 
-    .text-success {
-        color: var(--enabled-color)
-    }
-
-    .text-danger {
-        color: var(--disabled-color)
-    }
-
-    &-footer {
-        padding: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    &-footerLeft {
+    &-controls {
         display: flex;
         align-items: center;
-        gap: 15px;
-    }
-
-    &-titleSection {
-        display: flex;
-        align-items: center;
-        gap: 15px;
+        gap: 10px;
+        color: var(--muted-color);
     }
 
     &-lastRefresh {
-        opacity: 0.7;
-        font-size: 0.9em;
-        display: flex;
-        align-items: center;
-        gap: 5px;
+        font-size: 12px;
+    }
 
-        i {
-            font-size: 0.9em;
+    &-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 1px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: normal;
+        background: var(--control-bg-shaded);
+        color: var(--control-color);
+
+        &--running,
+        &--health-excellent {
+            background: var(--alert-success-bg);
+            color: var(--alert-success-color);
+        }
+
+        &--paused,
+        &--health-good {
+            background: var(--alert-bg);
+            color: var(--alert-color);
+        }
+
+        &--inactive,
+        &--warning,
+        &--health-poor,
+        &--health-critical {
+            background: var(--alert-error-bg);
+            color: var(--alert-error-color);
         }
     }
 
-    &-intervalSelector {
+    &-tiles {
         display: flex;
-        gap: 5px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        padding: 0 20px 15px;
+    }
 
-        .Button {
-            padding: 4px 8px;
-            font-size: 0.85em;
-            min-width: 40px;
+    &-tile {
+        min-width: 130px;
+        padding: 5px 20px 10px 0;
+    }
 
-            &.active {
-                background-color: var(--primary-color);
-                color: white;
+    a&-tile {
+        display: block;
+        color: inherit;
+
+        &:hover {
+            text-decoration: none;
+
+            .HorizonWidget-tileValue {
+                text-decoration: underline;
             }
         }
     }
 
-    &-health {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: @border-radius;
-        font-size: 0.9em;
+    &-tileLabel {
+        color: var(--muted-color);
+        font-size: 11px;
         font-weight: 600;
-
-        i {
-            font-size: 1.1em;
-        }
-
-        &--success {
-            background-color: fade(#28a745, 10%);
-            color: #28a745;
-        }
-
-        &--info {
-            background-color: fade(#007bff, 10%);
-            color: #007bff;
-        }
-
-        &--warning {
-            background-color: fade(#ffc107, 10%);
-            color: #ffc107;
-        }
-
-        &--danger {
-            background-color: fade(#dc3545, 10%);
-            color: #dc3545;
-        }
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
-    &-trendUp {
-        color: var(--enabled-color);
-        font-size: 0.8em;
-        margin-right: 4px;
-        animation: trendBounce 0.5s ease;
+    &-tileValue {
+        font-size: 20px;
+        color: var(--text-color);
+        margin-top: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    &-trendDown {
-        color: var(--disabled-color);
-        font-size: 0.8em;
-        margin-right: 4px;
-        animation: trendBounce 0.5s ease;
-    }
-
-    &-thresholdWarning {
-        color: var(--warning-color);
-        font-size: 0.9em;
-        margin-right: 4px;
-        animation: pulse 2s infinite;
-    }
-
-    &-thresholdDanger {
-        color: var(--disabled-color);
-        font-size: 0.9em;
-        margin-right: 4px;
-        animation: pulse 1s infinite;
+    &-tileSub {
+        color: var(--muted-color);
+        font-size: 11px;
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     &-error {
-        margin: 20px;
-
-        .Alert-icon {
-            font-size: 24px;
-        }
-
-        h4 {
-            margin-top: 0;
-            margin-bottom: 10px;
-        }
-
-        a {
-            color: inherit;
-            text-decoration: underline;
-
-            &:hover {
-                opacity: 0.8;
-            }
-        }
+        color: var(--alert-error-color);
+        background: var(--alert-error-bg);
+        border-radius: var(--border-radius);
+        margin: 0 20px 15px;
+        padding: 10px 15px;
     }
 }
-
-@keyframes trendBounce {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-3px);
-    }
-}
-
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
