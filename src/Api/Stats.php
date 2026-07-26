@@ -177,5 +177,4 @@ class Stats implements RequestHandlerInterface
 
         return $maxMemory;
     }
-
 }
