@@ -35,8 +35,8 @@ export default class HorizonRedisWidget extends DashboardWidget {
     // The store type and version are already exposed to the admin frontend
     // by AdminContent (the status widget uses the same data) — so the
     // heading says what actually runs, e.g. "Valkey 9.0.1", not "Redis".
-    const storeType: string = app.data.cacheStore || '';
-    const storeVersion: string = app.data.cacheVersion || '';
+    const storeType = (app.data.cacheStore as string | undefined) || '';
+    const storeVersion = (app.data.cacheVersion as string | undefined) || '';
     const serverTitle = storeType ? storeType.charAt(0).toUpperCase() + storeType.slice(1) : trans('kv_heading');
 
     return (
