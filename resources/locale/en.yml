@@ -110,3 +110,12 @@ fof-horizon:
         connected-clients: Connected Clients
         blocked-clients: Blocked Clients
         eviction-policy: Eviction Policy
+      # Tile labels for the Horizon-enriched core queue widget (the admin
+      # dashboard card that extends core's QueueWidget).
+      tile:
+        processes: Worker Processes
+        jobs_per_minute: Jobs / Min
+        max_wait: Max Wait
+        status: Status
+      horizon_max_wait_none: None
+      horizon_max_wait_value: "{seconds}s on {queue}"

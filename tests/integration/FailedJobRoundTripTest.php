@@ -15,16 +15,22 @@ namespace FoF\Horizon\Tests\integration;
 
 use Flarum\Testing\integration\ConsoleTestCase;
 use FoF\Redis\Extend\Redis;
+use FoF\Redis\Queue\RedisFailedJobProvider;
 use Illuminate\Contracts\Redis\Factory;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 
 /**
- * With horizon active, core's queue.failer used to be the Null provider —
- * failed jobs were silently discarded and queue:retry/queue:failed were
- * no-ops. This pins the full round trip: a logged failure is persisted to
- * queue_failed_jobs, and queue:retry pushes it back onto the redis queue
- * and clears the record.
+ * With horizon active, failed jobs are persisted by fof/redis's Redis-backed
+ * failer — NOT the database. An operator running the Redis stack has moved
+ * load off the database on purpose, and horizon already keeps its own failure
+ * record in Redis, so core's queue.failer (which powers queue:failed /
+ * queue:retry and core's dashboard) should also live in Redis rather than
+ * horizon forcing it back to the queue_failed_jobs table.
+ *
+ * This pins the full round trip: a logged failure is stored in Redis (and the
+ * database is NOT touched), and queue:retry pushes it back onto the redis
+ * queue and clears the record.
  */
 class FailedJobRoundTripTest extends ConsoleTestCase
 {
@@ -44,7 +50,17 @@ class FailedJobRoundTripTest extends ConsoleTestCase
     }
 
     #[Test]
-    public function a_failed_job_is_persisted_and_can_be_retried()
+    public function the_failer_is_the_redis_failer_not_the_database_one()
+    {
+        $this->assertInstanceOf(
+            RedisFailedJobProvider::class,
+            $this->app()->getContainer()->make('queue.failer'),
+            'horizon should defer to fof/redis\'s Redis failer, not override it with the database failer'
+        );
+    }
+
+    #[Test]
+    public function a_failed_job_is_persisted_to_redis_and_can_be_retried()
     {
         $container = $this->app()->getContainer();
 
@@ -69,20 +85,24 @@ class FailedJobRoundTripTest extends ConsoleTestCase
         $failer = $container->make('queue.failer');
         $failer->log('redis', 'default', $payload, new RuntimeException('round trip test'));
 
+        // Stored in Redis...
+        $this->assertSame(1, $failer->count(), 'A logged failure must be recorded by the Redis failer.');
+        $this->assertNotNull($failer->find($uuid), 'The failure must be findable by uuid.');
+
+        // ...and NOT in the database.
         $this->assertSame(
-            1,
+            0,
             $db->table('queue_failed_jobs')->where('uuid', $uuid)->count(),
-            'A logged failure must be persisted to queue_failed_jobs.'
+            'The Redis failer must not write to the queue_failed_jobs table.'
         );
 
         $this->runCommand(['command' => 'queue:retry', 'id' => [$uuid]]);
 
-        $this->assertSame(
-            0,
-            $db->table('queue_failed_jobs')->where('uuid', $uuid)->count(),
-            'A retried job must be removed from queue_failed_jobs.'
-        );
+        // Retry removes it from the failer...
+        $this->assertSame(0, $failer->count(), 'A retried job must be removed from the Redis failer.');
+        $this->assertNull($failer->find($uuid));
 
+        // ...and pushes it back onto the redis queue.
         $this->assertSame(
             1,
             (int) $redis->llen('queues:default'),
