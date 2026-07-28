@@ -13,10 +13,10 @@
 
 namespace FoF\Horizon\Tests\integration;
 
-use FoF\Redis\Queue\RedisFailedJobProvider;
 use Flarum\Testing\integration\TestCase;
 use FoF\Horizon\Overrides\RedisQueue;
 use FoF\Redis\Extend\Redis;
+use FoF\Redis\Queue\RedisFailedJobProvider;
 use Illuminate\Contracts\Config\Repository;
 use PHPUnit\Framework\Attributes\Test;
 
