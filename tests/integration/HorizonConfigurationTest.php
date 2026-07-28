@@ -13,10 +13,10 @@
 
 namespace FoF\Horizon\Tests\integration;
 
-use Flarum\Queue\DatabaseUuidFailedJobProvider;
 use Flarum\Testing\integration\TestCase;
 use FoF\Horizon\Overrides\RedisQueue;
 use FoF\Redis\Extend\Redis;
+use FoF\Redis\Queue\RedisFailedJobProvider;
 use Illuminate\Contracts\Config\Repository;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -156,14 +156,15 @@ class HorizonConfigurationTest extends TestCase
     /**
      * Core registers queue:retry / queue:failed CLI commands whenever the
      * connection is not sync — with a Null failer they are silent no-ops.
-     * With horizon active, failed jobs must be persisted like core's own
-     * database driver does.
+     * With horizon active, failed jobs must be persisted. fof/horizon defers
+     * to fof/redis's Redis-backed failer (rather than forcing the database
+     * failer), keeping failures in Redis alongside the rest of the stack.
      */
     #[Test]
     public function failed_jobs_are_persisted_not_discarded()
     {
         $failer = $this->app()->getContainer()->make('queue.failer');
 
-        $this->assertInstanceOf(DatabaseUuidFailedJobProvider::class, $failer);
+        $this->assertInstanceOf(RedisFailedJobProvider::class, $failer);
     }
 }

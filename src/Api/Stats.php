@@ -14,11 +14,11 @@
 namespace FoF\Horizon\Api;
 
 use FoF\Horizon\HealthScore;
+use FoF\Horizon\HorizonMetrics;
 use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Contracts\Queue\Queue;
 use Illuminate\Support\Arr;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laravel\Horizon\Contracts\JobRepository;
@@ -41,7 +41,8 @@ class Stats implements RequestHandlerInterface
         public JobRepository $jobs,
         public WaitTimeCalculator $waits,
         public SupervisorRepository $supervisors,
-        public MasterSupervisorRepository $masters
+        public MasterSupervisorRepository $masters,
+        public HorizonMetrics $horizonMetrics
     ) {
     }
 
@@ -124,19 +125,7 @@ class Stats implements RequestHandlerInterface
      */
     protected function totalProcessCount(): int
     {
-        $supervisors = $this->supervisors->all();
-
-        /** @var \Illuminate\Support\Collection<int, object> $supervisorsCollection */
-        $supervisorsCollection = collect($supervisors);
-
-        return $supervisorsCollection->reduce(function ($carry, $supervisor) {
-            /** @var array<int, int> $processes */
-            $processes = $supervisor->processes;
-            /** @var \Illuminate\Support\Collection<int, int> $processesCollection */
-            $processesCollection = collect($processes);
-
-            return $carry + $processesCollection->sum();
-        }, 0);
+        return $this->horizonMetrics->processes();
     }
 
     /**
@@ -169,26 +158,12 @@ class Stats implements RequestHandlerInterface
     /**
      * Whether the queue is paused through Flarum core's queue-pause mechanism.
      *
-     * Read from the shared cache using Illuminate's own key format so this
-     * works regardless of the installed core version — a wildcard pause
-     * covers every queue, otherwise any known queue being paused counts.
+     * Delegates to the shared HorizonMetrics service so the dashboard endpoint
+     * and the core-dashboard stats provider read pause state identically.
      */
     protected function queuePaused(): bool
     {
-        $cache = resolve('cache.store');
-        $connection = resolve(Queue::class)->getConnectionName();
-
-        if ($cache->get("illuminate:queue:paused:{$connection}:*", false)) {
-            return true;
-        }
-
-        foreach ($this->knownQueues() as $queue) {
-            if ($cache->get("illuminate:queue:paused:{$connection}:{$queue}", false)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->horizonMetrics->queuePausedInCore($this->knownQueues());
     }
 
     /**

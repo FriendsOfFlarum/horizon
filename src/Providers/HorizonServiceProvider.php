@@ -16,11 +16,13 @@ namespace FoF\Horizon\Providers;
 use Flarum\Foundation\Config;
 use Flarum\Foundation\Paths;
 use Flarum\Http\UrlGenerator;
-use Flarum\Queue\DatabaseUuidFailedJobProvider;
+use Flarum\Queue\QueueStatsProvider;
 use Flarum\Settings\SettingsRepositoryInterface;
 use FoF\Horizon\Dispatcher\Notifier;
+use FoF\Horizon\HorizonMetrics;
 use FoF\Horizon\LayeredConfig;
 use FoF\Horizon\Overrides\RedisQueue;
+use FoF\Horizon\Queue\HorizonQueueStatsProvider;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Bus\BatchFactory;
 use Illuminate\Bus\BatchRepository;
@@ -72,6 +74,37 @@ class HorizonServiceProvider extends Provider
         // we replicate only the two calls that fof/horizon actually needs.
         $this->normalizeConfig();
         $this->registerEvents();
+
+        $this->registerQueueStatsProvider();
+    }
+
+    /**
+     * Feed core's queue dashboard with a Horizon-enriched stats provider.
+     *
+     * fof/redis already binds a RedisQueueStatsProvider (pending / reserved /
+     * failed from Redis); we extend it to add a `horizon` block (processes,
+     * supervisors, throughput, wait, paused) that the Horizon-aware dashboard
+     * widget renders — core's own widget ignores the extra key.
+     *
+     * Bound in boot() (not register/configure) so it runs after fof/redis's
+     * own QueueStatsProvider binding — which is applied in the extender phase
+     * from the site's extend.php — and therefore wins. Guarded so older cores
+     * without the contract are untouched.
+     */
+    protected function registerQueueStatsProvider(): void
+    {
+        if (!interface_exists(QueueStatsProvider::class)) {
+            return;
+        }
+
+        $this->app->singleton(QueueStatsProvider::class, function (Container $container) {
+            return new HorizonQueueStatsProvider(
+                $container->make('flarum.queue.connection'),
+                $container->make('queue.failer'),
+                $container->make('flarum.queue.queues'),
+                $container->make(HorizonMetrics::class)
+            );
+        });
     }
 
     protected function registerNotificationDispatcher(): void
@@ -108,20 +141,18 @@ class HorizonServiceProvider extends Provider
             return $queue;
         });
 
-        // Core binds a NullFailedJobProvider for non-database queues, which
-        // silently discards failed jobs and makes the queue:retry/queue:failed
-        // commands no-ops. Persist failures like core's database driver does.
-        $this->app->extend('queue.failer', function ($failer, Container $container) {
-            /** @var Config $config */
-            $config = $container->make(Config::class);
-
-            return new DatabaseUuidFailedJobProvider(
-                $container->make('db'),
-                $config['database']['database'] ?? '',
-                'queue_failed_jobs',
-                $container->make('db.connection')
-            );
-        });
+        // We intentionally do NOT override `queue.failer` here.
+        //
+        // Core binds a NullFailedJobProvider for non-database queues (failed
+        // jobs silently discarded, queue:retry/queue:failed no-ops). fof/redis,
+        // which fof/horizon depends on, already replaces that with a
+        // Redis-backed failer (RedisFailedJobProvider). Deferring to it keeps
+        // failed jobs in Redis — consistent with the rest of the stack and with
+        // Horizon's own Redis failure store (JobRepository) — rather than
+        // forcing them back into the database, which an operator on the Redis
+        // stack has deliberately moved load away from. Core's dashboard and the
+        // queue:failed/queue:retry commands work against that Redis failer; the
+        // Horizon dashboard reads its own JobRepository independently.
 
         $this->app->afterResolving(Factory::class, function (RedisManager $manager) {
             if ($config = $manager->getConnectionConfig()) {

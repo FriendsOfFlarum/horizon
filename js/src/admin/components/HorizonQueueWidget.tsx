@@ -1,111 +1,132 @@
 import app from 'flarum/admin/app';
-import DashboardWidget, { IDashboardWidgetAttrs } from 'flarum/admin/components/DashboardWidget';
-import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
-import Button from 'flarum/common/components/Button';
+import QueueWidget, { type QueueStats, type QueueTotals } from 'flarum/admin/components/QueueWidget';
+import ItemList from 'flarum/common/utils/ItemList';
 import LinkButton from 'flarum/common/components/LinkButton';
-import Tooltip from 'flarum/common/components/Tooltip';
-import Switch from 'flarum/common/components/Switch';
-import Icon from 'flarum/common/components/Icon';
-import humanTime from 'flarum/common/utils/humanTime';
 import type Mithril from 'mithril';
-import statsStore, { HealthFactor } from '../statsStore';
-import { horizonUrl, periodLabel, statTile } from '../statsView';
 
 const trans = (key: string, params = {}) => app.translator.trans(`fof-horizon.admin.stats.${key}`, params);
 
-export default class HorizonQueueWidget extends DashboardWidget {
-  oncreate(vnode: Mithril.VnodeDOM<IDashboardWidgetAttrs, this>) {
-    super.oncreate(vnode);
-    statsStore.attach();
-  }
+/**
+ * The horizon enrichment block carried inside `/queue/stats` totals, produced
+ * by HorizonQueueStatsProvider on the backend. Optional so the widget degrades
+ * gracefully if an older backend (no enrichment) responds.
+ */
+interface HorizonBlock {
+  processes: number;
+  supervisors: number;
+  jobsPerMinute: number;
+  maxWait: { queue: string; seconds: number } | null;
+  paused: boolean;
+}
 
-  onremove() {
-    statsStore.detach();
-  }
+type HorizonTotals = QueueTotals & { horizon?: HorizonBlock };
 
+/**
+ * Horizon's admin-dashboard card.
+ *
+ * Rather than ship a parallel widget, this extends core's generic QueueWidget
+ * so the pending/reserved/failed counts (and the failed-jobs drill-through)
+ * come from the one shared `/queue/stats` endpoint — which, with horizon
+ * active, is backed by HorizonQueueStatsProvider. We then add horizon-specific
+ * tiles (worker processes, throughput, longest wait, paused state) from the
+ * `horizon` enrichment block core's own widget ignores. Deep metrics
+ * (throughput history, per-queue breakdowns, health) live on the full Horizon
+ * dashboard, linked from here.
+ */
+export default class HorizonQueueWidget extends QueueWidget {
   className() {
-    return 'HorizonWidget HorizonWidget--queue';
+    return super.className() + ' HorizonQueueWidget';
   }
 
-  content() {
-    const { data, error, loading } = statsStore;
+  /**
+   * The horizon enrichment block from the loaded stats, or undefined.
+   */
+  horizonBlock(): HorizonBlock | undefined {
+    return (this.stats as (QueueStats & { totals: HorizonTotals }) | null)?.totals.horizon;
+  }
 
-    return (
-      <div className="HorizonWidget-body">
-        <div className="HorizonWidget-header">
-          <h3 className="HorizonWidget-title">
-            <Icon name="fas fa-stream" /> {trans('queue_heading')}
-            {data && this.statusPill(data.status, data.pendingJobs)}
-            {data && this.healthPill(data.health)}
-          </h3>
-          <div className="HorizonWidget-controls">
-            {statsStore.lastRefresh && <span className="HorizonWidget-lastRefresh">{humanTime(new Date(statsStore.lastRefresh))}</span>}
-            <Tooltip text={trans('auto_refresh')}>
-              <Switch state={statsStore.autoRefresh} onchange={(value: boolean) => statsStore.toggleAutoRefresh(value)} />
-            </Tooltip>
-            <Button
-              className="Button Button--icon"
-              icon="fas fa-sync-alt"
-              loading={loading}
-              onclick={() => statsStore.load()}
-              aria-label={trans('refresh')}
-            />
-            <LinkButton
-              className="Button"
-              icon="fas fa-external-link-alt"
-              href={app.forum.attribute('adminUrl') + '/horizon'}
-              external={true}
-              target="_blank"
-            >
-              {trans('full_dashboard')}
-            </LinkButton>
-          </div>
-        </div>
+  titleItems(): ItemList<Mithril.Children> {
+    const items = super.titleItems();
+    const horizon = this.horizonBlock();
 
-        {error && <div className="HorizonWidget-error">{error}</div>}
-        {!error && !data && <LoadingIndicator />}
-        {!error && data && this.tiles(data)}
-      </div>
+    if (horizon) {
+      // A single at-a-glance status pill: paused shows the pending backlog
+      // (the number that matters when jobs aren't flowing); otherwise running.
+      const pending = this.stats?.totals.pending ?? 0;
+      const label =
+        horizon.paused && pending ? trans('status.paused_pending', { count: pending }) : trans(`status.${horizon.paused ? 'paused' : 'running'}`);
+
+      items.add(
+        'horizon-status',
+        <span className={`HorizonWidget-pill HorizonWidget-pill--${horizon.paused ? 'paused' : 'running'}`}>{label}</span>,
+        100
+      );
+    }
+
+    return items;
+  }
+
+  headerActions(): ItemList<Mithril.Children> {
+    const items = super.headerActions();
+
+    // Link to the full Horizon dashboard for deep metrics (throughput history,
+    // per-queue breakdowns, health, batches) that don't belong on the card.
+    items.add(
+      'horizon-dashboard',
+      <LinkButton
+        className="Button Button--icon Button--flat"
+        icon="fas fa-external-link-alt"
+        href={app.forum.attribute('adminUrl') + '/horizon'}
+        external={true}
+        target="_blank"
+        aria-label={trans('full_dashboard')}
+        title={trans('full_dashboard')}
+      />,
+      90 // after the inherited refresh button (priority 100)
     );
+
+    return items;
   }
 
-  tiles(data: any) {
-    return (
-      <div className="HorizonWidget-tiles">
-        {statTile('processes', data.processes)}
-        {statTile('jobs-per-minute', data.jobsPerMinute)}
-        {statTile('pending-jobs', data.pendingJobs, undefined, horizonUrl('/jobs/pending'))}
-        {statTile('recent-jobs', data.recentJobs, periodLabel(data.periods?.recentJobs), horizonUrl('/jobs/completed'))}
-        {statTile('failed-jobs', data.failedJobs, periodLabel(data.periods?.failedJobs), horizonUrl('/failed'))}
-        {statTile('max-wait', data.maxWaitTime ? `${Math.round(data.maxWaitTime)} min` : '0 min', data.maxWaitQueue)}
-        {data.busiestQueues?.slowestQueue && statTile('slowest-queue', data.busiestQueues.slowestQueue)}
-        {data.busiestQueues?.highestThroughputQueue && statTile('highest-throughput-queue', data.busiestQueues.highestThroughputQueue)}
-      </div>
+  tiles(): ItemList<Mithril.Children> {
+    const items = super.tiles();
+    const horizon = this.horizonBlock();
+
+    if (!horizon) {
+      return items;
+    }
+
+    // Lower priorities than core's pending(100)/reserved(90)/failed(80) so the
+    // horizon tiles sit after them. Reuses core's tile() — the value can be a
+    // string now, and tileLabel() below points label lookups at horizon's
+    // locale namespace.
+    items.add('horizon-processes', this.tile('processes', horizon.processes), 70);
+    items.add('horizon-jobs-per-minute', this.tile('jobs_per_minute', horizon.jobsPerMinute), 60);
+    items.add('horizon-max-wait', this.tile('max_wait', this.formatWait(horizon.maxWait)), 50);
+    items.add(
+      'horizon-status',
+      this.tile('status', trans(horizon.paused ? 'status.paused' : 'status.running'), horizon.paused ? 'QueueWidget-tile--alert' : ''),
+      40
     );
+
+    return items;
   }
 
-  statusPill(status: string, pendingJobs?: number) {
-    // When paused, the pending backlog is the number that matters most —
-    // surface it on the pill so the operator sees what's accumulating.
-    const label = status === 'paused' && pendingJobs ? trans('status.paused_pending', { count: pendingJobs }) : trans(`status.${status}`);
+  /**
+   * Horizon tile keys resolve against horizon's own locale namespace; the
+   * inherited pending/reserved/failed keys fall back to core's.
+   */
+  tileLabel(key: string): Mithril.Children {
+    const horizonKeys = ['processes', 'jobs_per_minute', 'max_wait', 'status'];
 
-    return <span className={`HorizonWidget-pill HorizonWidget-pill--${status}`}>{label}</span>;
+    return horizonKeys.includes(key) ? trans('tile.' + key) : super.tileLabel(key);
   }
 
-  healthPill(health: { score: number; factors: HealthFactor[] }) {
-    if (!health) return null;
+  formatWait(maxWait: HorizonBlock['maxWait']): Mithril.Children {
+    if (!maxWait || maxWait.seconds <= 0) {
+      return trans('horizon_max_wait_none');
+    }
 
-    const level = health.score >= 90 ? 'excellent' : health.score >= 70 ? 'good' : health.score >= 40 ? 'poor' : 'critical';
-
-    const tooltip = [
-      trans('health.tooltip_heading', { score: health.score }),
-      ...health.factors.map((factor) => `${trans(`health.factor.${factor.key}`, { value: factor.value })} (${factor.impact})`),
-    ].join(' — ');
-
-    return (
-      <Tooltip text={tooltip}>
-        <span className={`HorizonWidget-pill HorizonWidget-pill--health-${level}`}>{trans(`health.${level}`)}</span>
-      </Tooltip>
-    );
+    return trans('horizon_max_wait_value', { seconds: maxWait.seconds, queue: maxWait.queue });
   }
 }
