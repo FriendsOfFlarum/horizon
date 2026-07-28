@@ -7,7 +7,7 @@ export default class HorizonQueueWidget extends DashboardWidget {
     className(): string;
     content(): JSX.Element;
     tiles(data: any): JSX.Element;
-    statusPill(status: string): JSX.Element;
+    statusPill(status: string, pendingJobs?: number): JSX.Element;
     healthPill(health: {
         score: number;
         factors: HealthFactor[];
