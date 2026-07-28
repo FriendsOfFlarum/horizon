@@ -87,6 +87,7 @@ fof-horizon:
         running: Running
         paused: Paused
         inactive: Inactive
+        paused_pending: "Paused · {count} waiting"
       period:
         minutes: "past {count} min"
         hour: past hour
