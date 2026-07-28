@@ -13,25 +13,20 @@
 
 namespace FoF\Horizon\Console;
 
-use Illuminate\Console\Command;
+use Laravel\Horizon\Console\ContinueCommand as BaseContinueCommand;
 use Laravel\Horizon\Contracts\HorizonCommandQueue;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 use Laravel\Horizon\MasterSupervisor;
 use Laravel\Horizon\SupervisorCommands\ContinueWorking;
-use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
- * Replaces Laravel's horizon:continue — see PauseCommand for why the stock
- * command's local posix_kill approach fails across containers.
+ * Replaces the body of Laravel's horizon:continue — see PauseCommand for why
+ * the stock command's local posix_kill approach fails across containers. We
+ * keep the base command's identity and override only handle().
  */
-#[AsCommand(name: 'horizon:continue')]
-class ContinueCommand extends Command
+class ContinueCommand extends BaseContinueCommand
 {
-    protected $signature = 'horizon:continue';
-
-    protected $description = 'Instruct the master supervisor to continue working';
-
-    public function handle(MasterSupervisorRepository $masters, HorizonCommandQueue $queue): void
+    public function handle(MasterSupervisorRepository $masters): void
     {
         $names = collect($masters->all())->pluck('name');
 
@@ -40,6 +35,10 @@ class ContinueCommand extends Command
 
             return;
         }
+
+        // Fixed parent signature — resolve the queue from the container rather
+        // than injecting it as a parameter (see PauseCommand).
+        $queue = $this->laravel->make(HorizonCommandQueue::class);
 
         foreach ($names as $name) {
             $queue->push(MasterSupervisor::commandQueueFor($name), ContinueWorking::class);

@@ -13,30 +13,33 @@
 
 namespace FoF\Horizon\Console;
 
-use Illuminate\Console\Command;
+use Laravel\Horizon\Console\PauseCommand as BasePauseCommand;
 use Laravel\Horizon\Contracts\HorizonCommandQueue;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 use Laravel\Horizon\MasterSupervisor;
 use Laravel\Horizon\SupervisorCommands\Pause;
-use Symfony\Component\Console\Attribute\AsCommand;
+
+// The base command's handle() signature is fixed at (MasterSupervisorRepository
+// $masters), so the command queue is resolved from the container rather than
+// injected as a second parameter — overriding with an extra argument would
+// break signature compatibility with the parent.
 
 /**
- * Replaces Laravel's horizon:pause, which sends SIGUSR2 to locally-discovered
- * PIDs via posix_kill — a no-op when the command runs in a different container
- * than the master supervisor (a standard Docker deployment). The pause is
- * broadcast through Horizon's redis command queue, which every master polls
- * each loop wherever it runs; the master is Pausable and cascades the pause to
- * its supervisors. Mirrors the cross-container fix already applied to
- * horizon:terminate.
+ * Laravel's horizon:pause sends SIGUSR2 to locally-discovered PIDs via
+ * posix_kill, which silently does nothing when the command runs in a
+ * different container than the master supervisor (a standard split
+ * web/worker Docker deployment) — it reports "No processes to pause" and the
+ * running master is unaffected.
+ *
+ * We inherit the command's identity ($signature/$description/name) from the
+ * base command and replace only handle(): the pause is broadcast through
+ * Horizon's redis command queue, which every master polls each loop wherever
+ * it runs. The master is Pausable and cascades pause() to its supervisors.
+ * Mirrors the cross-container fix applied to horizon:terminate.
  */
-#[AsCommand(name: 'horizon:pause')]
-class PauseCommand extends Command
+class PauseCommand extends BasePauseCommand
 {
-    protected $signature = 'horizon:pause';
-
-    protected $description = 'Pause the master supervisor';
-
-    public function handle(MasterSupervisorRepository $masters, HorizonCommandQueue $queue): void
+    public function handle(MasterSupervisorRepository $masters): void
     {
         $names = collect($masters->all())->pluck('name');
 
@@ -45,6 +48,8 @@ class PauseCommand extends Command
 
             return;
         }
+
+        $queue = $this->laravel->make(HorizonCommandQueue::class);
 
         foreach ($names as $name) {
             $queue->push(MasterSupervisor::commandQueueFor($name), Pause::class);
