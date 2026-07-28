@@ -74,6 +74,37 @@ class StatsEndpointTest extends TestCase
     }
 
     #[Test]
+    public function a_core_paused_queue_reports_the_status_as_paused()
+    {
+        // No master runs in the test environment (status would be 'inactive'),
+        // but core's queue pause is a separate mechanism: with the queue paused
+        // via the shared cache flag, no jobs are being processed, so the
+        // dashboard must report a single unified "paused" status rather than
+        // leaving the operator to reconcile two different pause signals.
+        $cache = $this->app()->getContainer()->make('cache.store');
+        $cache->forever('illuminate:queue:paused:redis:*', true);
+
+        try {
+            $this->assertSame('paused', $this->stats()['status']);
+        } finally {
+            $cache->forget('illuminate:queue:paused:redis:*');
+        }
+    }
+
+    #[Test]
+    public function a_core_paused_individual_queue_also_reports_paused()
+    {
+        $cache = $this->app()->getContainer()->make('cache.store');
+        $cache->forever('illuminate:queue:paused:redis:default', true);
+
+        try {
+            $this->assertSame('paused', $this->stats()['status']);
+        } finally {
+            $cache->forget('illuminate:queue:paused:redis:default');
+        }
+    }
+
+    #[Test]
     public function job_counts_come_with_their_periods()
     {
         $stats = $this->stats();

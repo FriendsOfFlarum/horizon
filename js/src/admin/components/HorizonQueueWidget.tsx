@@ -35,7 +35,7 @@ export default class HorizonQueueWidget extends DashboardWidget {
         <div className="HorizonWidget-header">
           <h3 className="HorizonWidget-title">
             <Icon name="fas fa-stream" /> {trans('queue_heading')}
-            {data && this.statusPill(data.status)}
+            {data && this.statusPill(data.status, data.pendingJobs)}
             {data && this.healthPill(data.health)}
           </h3>
           <div className="HorizonWidget-controls">
@@ -84,8 +84,12 @@ export default class HorizonQueueWidget extends DashboardWidget {
     );
   }
 
-  statusPill(status: string) {
-    return <span className={`HorizonWidget-pill HorizonWidget-pill--${status}`}>{trans(`status.${status}`)}</span>;
+  statusPill(status: string, pendingJobs?: number) {
+    // When paused, the pending backlog is the number that matters most —
+    // surface it on the pill so the operator sees what's accumulating.
+    const label = status === 'paused' && pendingJobs ? trans('status.paused_pending', { count: pendingJobs }) : trans(`status.${status}`);
+
+    return <span className={`HorizonWidget-pill HorizonWidget-pill--${status}`}>{label}</span>;
   }
 
   healthPill(health: { score: number; factors: HealthFactor[] }) {

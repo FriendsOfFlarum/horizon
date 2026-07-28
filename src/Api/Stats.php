@@ -17,6 +17,8 @@ use FoF\Horizon\HealthScore;
 use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Queue\Queue;
 use Illuminate\Support\Arr;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laravel\Horizon\Contracts\JobRepository;
@@ -140,10 +142,21 @@ class Stats implements RequestHandlerInterface
     /**
      * Get the current status of Horizon.
      *
+     * There are two independent ways jobs can stop being processed: the
+     * Horizon master supervisor can be paused, or the queue can be paused
+     * through Flarum's core queue-pause mechanism (the Advanced-page toggle /
+     * queue:pause command). To an operator both mean the same thing — jobs
+     * aren't flowing — so this reports a single unified "paused" whenever
+     * either is in effect, rather than exposing two separate signals.
+     *
      * @return string
      */
     protected function currentStatus(): string
     {
+        if ($this->queuePaused()) {
+            return 'paused';
+        }
+
         if (!$masters = $this->masters->all()) {
             return 'inactive';
         }
@@ -151,6 +164,48 @@ class Stats implements RequestHandlerInterface
         return collect($masters)->contains(function ($master) {
             return $master->status === 'paused';
         }) ? 'paused' : 'running';
+    }
+
+    /**
+     * Whether the queue is paused through Flarum core's queue-pause mechanism.
+     *
+     * Read from the shared cache using Illuminate's own key format so this
+     * works regardless of the installed core version — a wildcard pause
+     * covers every queue, otherwise any known queue being paused counts.
+     */
+    protected function queuePaused(): bool
+    {
+        $cache = resolve('cache.store');
+        $connection = resolve(Queue::class)->getConnectionName();
+
+        if ($cache->get("illuminate:queue:paused:{$connection}:*", false)) {
+            return true;
+        }
+
+        foreach ($this->knownQueues() as $queue) {
+            if ($cache->get("illuminate:queue:paused:{$connection}:{$queue}", false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The queue names to check for an individual pause. Uses core's queue
+     * registry when available (newer core), falling back to 'default'.
+     *
+     * @return string[]
+     */
+    protected function knownQueues(): array
+    {
+        $container = resolve(Container::class);
+
+        if ($container->bound('flarum.queue.queues')) {
+            return (array) $container->make('flarum.queue.queues');
+        }
+
+        return ['default'];
     }
 
     /**
