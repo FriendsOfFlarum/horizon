@@ -76,7 +76,7 @@ class Horizon implements ExtenderInterface
     private array $appendQueues = [];
 
     /**
-     * Job class => queue routing. Applied as AbstractJob::$onQueue at boot,
+     * Job class => queue routing. Registered in core's queue-route map at boot,
      * guarded by class_exists.
      *
      * @var array<class-string, string>
@@ -131,7 +131,7 @@ class Horizon implements ExtenderInterface
 
         $this->registerProfiles($container);
         $this->registerRoutedQueues($container);
-        $this->applyJobRoutes();
+        $this->applyJobRoutes($container);
     }
 
     /**
@@ -228,14 +228,20 @@ class Horizon implements ExtenderInterface
     }
 
     /**
-     * Apply the job => queue routes as AbstractJob::$onQueue, skipping any job
-     * class that is not installed so an optional dependency can't fatal boot.
+     * Register the job => queue routes in core's queue-route map, skipping any
+     * job class that is not installed so an optional dependency can't fatal boot.
      */
-    private function applyJobRoutes(): void
+    private function applyJobRoutes(Container $container): void
     {
+        if (empty($this->routes)) {
+            return;
+        }
+
+        $routes = $container->make('queue.routes');
+
         foreach ($this->routes as $class => $queue) {
             if (class_exists($class)) {
-                $class::$onQueue = $queue;
+                $routes->set($class, $queue);
             }
         }
     }
@@ -272,9 +278,10 @@ class Horizon implements ExtenderInterface
     }
 
     /**
-     * Route a job onto a queue: sets AbstractJob::$onQueue at boot (guarded by
-     * class_exists), and if that queue is served by a named supervisor, ensures
-     * the supervisor lists it. Always registers the queue for admin tooling.
+     * Route a job onto a queue: registers it in core's queue-route map at boot
+     * (guarded by class_exists), and if that queue is served by a named
+     * supervisor, ensures the supervisor lists it. Always registers the queue
+     * for admin tooling.
      *
      * @param class-string $jobClass
      */

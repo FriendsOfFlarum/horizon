@@ -31,8 +31,8 @@ use PHPUnit\Framework\Attributes\Test;
  * online.
  *
  * These use the real flarum/realtime and flarum/gdpr packages (dev deps) so the
- * routed job classes, their $onQueue inheritance and the enabled-checks are all
- * exercised for real.
+ * routed job classes, core's queue-route resolution and the enabled-checks are
+ * all exercised for real.
  */
 class BuiltInRoutingTest extends TestCase
 {
@@ -64,13 +64,27 @@ class BuiltInRoutingTest extends TestCase
         return $this->app()->getContainer()->make('flarum.queue.queues');
     }
 
+    /**
+     * The queue a job class is routed to, resolved through core's route map by
+     * class name (covering hierarchy: an abstract base route covers subclasses).
+     */
+    private function routeFor(string $jobClass): ?string
+    {
+        $routes = $this->app()->getContainer()->make('queue.routes')->all();
+
+        // Map entries are [connection, queue] or a bare queue string.
+        $route = $routes[$jobClass] ?? null;
+
+        return is_array($route) ? ($route[1] ?? null) : $route;
+    }
+
     #[Test]
     public function core_mail_jobs_are_routed_onto_the_mail_queue()
     {
         $this->app();
 
-        $this->assertSame('mail', SendEmailNotificationJob::$onQueue);
-        $this->assertSame('mail', SendInformationalEmailJob::$onQueue);
+        $this->assertSame('mail', $this->routeFor(SendEmailNotificationJob::class));
+        $this->assertSame('mail', $this->routeFor(SendInformationalEmailJob::class));
     }
 
     #[Test]
@@ -93,7 +107,7 @@ class BuiltInRoutingTest extends TestCase
 
         $this->assertNotEmpty($fast, 'fast must register once realtime is enabled');
         $this->assertContains('realtime', $fast['queue']);
-        $this->assertSame('realtime', RealtimeJob::$onQueue);
+        $this->assertSame('realtime', $this->routeFor(RealtimeJob::class));
         $this->assertContains('realtime', $this->knownQueues());
     }
 
@@ -116,7 +130,7 @@ class BuiltInRoutingTest extends TestCase
 
         $this->assertNotEmpty($long, 'long must register once gdpr is enabled');
         $this->assertContains('gdpr', $long['queue']);
-        $this->assertSame('gdpr', GdprJob::$onQueue);
+        $this->assertSame('gdpr', $this->routeFor(GdprJob::class));
         $this->assertContains('gdpr', $this->knownQueues());
     }
 
@@ -144,7 +158,27 @@ class BuiltInRoutingTest extends TestCase
         $this->assertSame(6, $standard['processes']);
         $this->assertSame([], $this->supervisor('iplookup'), 'iplookup must not get its own supervisor');
 
-        $this->assertSame('iplookup', RetrieveIP::$onQueue);
+        $this->assertSame('iplookup', $this->routeFor(RetrieveIP::class));
         $this->assertContains('iplookup', $this->knownQueues());
+    }
+
+    /**
+     * Regression: with realtime + gdpr + geoip all enabled together, each job
+     * class routes to its own queue. The previous shared-static mechanism
+     * collided here — routing one overwrote the others, so realtime/mail jobs
+     * silently landed on gdpr. Class-keyed routing keeps them independent.
+     */
+    #[Test]
+    public function all_routed_extensions_together_keep_independent_queues()
+    {
+        $this->extension('flarum-realtime');
+        $this->extension('flarum-gdpr');
+        $this->extension('fof-geoip');
+        $this->app();
+
+        $this->assertSame('mail', $this->routeFor(SendEmailNotificationJob::class));
+        $this->assertSame('realtime', $this->routeFor(RealtimeJob::class));
+        $this->assertSame('gdpr', $this->routeFor(GdprJob::class));
+        $this->assertSame('iplookup', $this->routeFor(RetrieveIP::class));
     }
 }

@@ -124,7 +124,10 @@ class HorizonServiceProvider extends Provider
             return;
         }
 
-        $queues = (new BuiltInRouting($this->app->make(ExtensionManager::class)))->activeQueues();
+        $queues = (new BuiltInRouting(
+            $this->app->make(ExtensionManager::class),
+            $this->app->make('queue.routes')
+        ))->activeQueues();
 
         $this->app->extend('flarum.queue.queues', function ($known) use ($queues) {
             return array_values(array_unique(array_merge(
@@ -354,7 +357,10 @@ class HorizonServiceProvider extends Provider
         // are enabled — realtime jobs onto `fast` and gdpr jobs onto `long`
         // (bringing those tiers online). Runs before the config.php/env layers
         // below so an operator can still tune or override the result.
-        $routing = new BuiltInRouting($container->make(ExtensionManager::class));
+        $routing = new BuiltInRouting(
+            $container->make(ExtensionManager::class),
+            $container->make('queue.routes')
+        );
         $profiles = $routing->apply($profiles);
 
         $resolver = new ProfileResolver($layered);
