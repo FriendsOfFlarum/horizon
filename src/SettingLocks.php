@@ -40,8 +40,8 @@ class SettingLocks
      * @var array<string, array{env: string, config: string}>
      */
     private const MAP = [
-        'email_concurrency' => ['env' => 'REDIS_HORIZON_EMAIL_CONCURRENCY', 'config' => 'email_concurrency'],
-        'memory_limit'      => ['env' => 'REDIS_HORIZON_MEMORY_LIMIT', 'config' => 'memory_limit'],
+        'email_concurrency'  => ['env' => 'REDIS_HORIZON_EMAIL_CONCURRENCY', 'config' => 'email_concurrency'],
+        'memory_limit'       => ['env' => 'REDIS_HORIZON_MEMORY_LIMIT', 'config' => 'memory_limit'],
         'trim.recent'        => ['env' => 'REDIS_HORIZON_TRIM_RECENT', 'config' => 'trim.recent'],
         'trim.pending'       => ['env' => 'REDIS_HORIZON_TRIM_PENDING', 'config' => 'trim.pending'],
         'trim.completed'     => ['env' => 'REDIS_HORIZON_TRIM_COMPLETED', 'config' => 'trim.completed'],
