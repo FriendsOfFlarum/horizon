@@ -13,11 +13,8 @@
 
 namespace FoF\Horizon\Console;
 
+use FoF\Horizon\RestartMaster;
 use Illuminate\Console\Command;
-use Laravel\Horizon\Contracts\HorizonCommandQueue;
-use Laravel\Horizon\Contracts\MasterSupervisorRepository;
-use Laravel\Horizon\MasterSupervisor;
-use Laravel\Horizon\SupervisorCommands\Terminate;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
@@ -35,20 +32,16 @@ class TerminateCommand extends Command
 
     protected $description = 'Terminate the master supervisor so it can be restarted';
 
-    public function handle(MasterSupervisorRepository $masters, HorizonCommandQueue $queue): void
+    public function handle(RestartMaster $restarter): void
     {
-        $names = collect($masters->all())->pluck('name');
+        $count = $restarter->broadcast();
 
-        if ($names->isEmpty()) {
+        if ($count === 0) {
             $this->components->info('No master supervisors are running.');
 
             return;
         }
 
-        foreach ($names as $name) {
-            $queue->push(MasterSupervisor::commandQueueFor($name), Terminate::class, ['status' => 0]);
-        }
-
-        $this->components->info('Broadcast terminate to '.$names->count().' master supervisor(s) via redis.');
+        $this->components->info('Broadcast terminate to '.$count.' master supervisor(s) via redis.');
     }
 }

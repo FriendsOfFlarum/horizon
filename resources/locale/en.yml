@@ -1,6 +1,8 @@
 fof-horizon:
   admin:
     settings:
+      locked_by_env: "Set by an environment variable to {value} — change it there, not here."
+      locked_by_code: "Set in code (config.php or extend.php) to {value} — change it there, not here."
       mail_title: Email Delivery
       mail_help: |
         Control how many emails are sent at the same time. Each worker sends one
@@ -36,32 +38,18 @@ fof-horizon:
       trim_monitored_help: |
         This table is used to display monitored jobs in the Horizon dashboard.
 
-      supervisor_title: Supervisor Settings
+      supervisor_title: Worker Settings
       supervisor_help: |
-        Configure the Horizon supervisor that runs your queue workers. These
-        values can be overridden per deployment via config.php (under the
-        "horizon" key) or FOF_HORIZON_* environment variables — values set
-        there take precedence over this page. Restart Horizon after changing
-        any of these settings.
-      supervisor_processes: Worker Processes
-      supervisor_processes_help: |
-        The maximum number of worker processes the supervisor may run.
-      supervisor_memory: Worker Memory Limit (MB)
-      supervisor_memory_help: |
-        A worker restarts once it exceeds this memory usage.
-      supervisor_tries: Job Tries
-      supervisor_tries_help: |
-        How many times a job is attempted before it is marked as failed.
-      supervisor_queues: Queues
-      supervisor_queues_help: |
-        Comma-separated list of queue names the workers consume. Add any
-        queues your extensions dispatch jobs onto.
-      supervisor_balance: Balance Strategy
-      supervisor_balance_help: |
-        How Horizon distributes worker processes across the queues above.
+        Horizon runs your queue workers in tiered profiles (standard, fast,
+        long, emails). Worker counts, memory and queues are configured per
+        deployment via REDIS_HORIZON_* environment variables, config.php (under
+        the "horizon" key), or the Horizon extender in extend.php — see the
+        extension's README. Restart Horizon after changing worker configuration.
       memory_limit: Master Process Memory Limit (MB)
       memory_limit_help: |
-        Memory limit for the Horizon master supervisor process.
+        Memory limit for the Horizon master supervisor process. Horizon raises
+        this automatically to the largest worker budget, so you rarely need to
+        set it by hand.
 
     stats:
       queue_heading: Queue

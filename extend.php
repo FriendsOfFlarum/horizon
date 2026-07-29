@@ -40,6 +40,13 @@ return [
     (new Flarum\ServiceProvider())
         ->register(Providers\HorizonServiceProvider::class),
 
+    // Restart the Horizon master when an extension is toggled, so a changed
+    // supervisor layout (e.g. a newly routed queue) takes effect without a
+    // manual horizon:terminate. Core already restarts the queue workers on
+    // these events; this mirrors that at the master level.
+    (new Flarum\Event())
+        ->subscribe(Listeners\RestartOnExtensionToggle::class),
+
     (new Flarum\Console())
         ->command(Laravel\HorizonCommand::class)
         ->command(Laravel\ListCommand::class)
