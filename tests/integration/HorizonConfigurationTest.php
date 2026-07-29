@@ -13,6 +13,7 @@
 
 namespace FoF\Horizon\Tests\integration;
 
+use Flarum\Queue\RoutingQueue;
 use Flarum\Testing\integration\TestCase;
 use FoF\GeoIP\Jobs\RetrieveIP;
 use FoF\Horizon\Extend\Horizon;
@@ -63,17 +64,31 @@ class HorizonConfigurationTest extends TestCase
         return $this->supervisors()['supervisor-'.$name] ?? [];
     }
 
+    private function routeFor(string $jobClass): ?string
+    {
+        $route = $this->app()->getContainer()->make('queue.routes')->all()[$jobClass] ?? null;
+
+        return is_array($route) ? ($route[1] ?? null) : $route;
+    }
+
     /**
      * illuminate/queue 13.15.0 type-hinted WorkerIdle::$connectionName as
      * string, so a connection without a name crashes the worker loop.
      * Mirrors flarum/framework#4700; fof/horizon issue #25.
+     *
+     * Core now wraps `flarum.queue.connection` in a RoutingQueue so `push()`
+     * routes by class; the horizon RedisQueue is the driver underneath. The
+     * worker only ever calls pop()/getConnectionName() (both delegated), and the
+     * name must still survive the wrapper — reach the real driver via the
+     * wrapper's public getDriver() to assert it.
      */
     #[Test]
     public function queue_connection_is_a_named_horizon_redis_queue()
     {
         $queue = $this->app()->getContainer()->make('flarum.queue.connection');
 
-        $this->assertInstanceOf(RedisQueue::class, $queue);
+        $this->assertInstanceOf(RoutingQueue::class, $queue);
+        $this->assertInstanceOf(RedisQueue::class, $queue->getDriver());
         $this->assertSame('redis', $queue->getConnectionName());
     }
 
@@ -332,7 +347,7 @@ class HorizonConfigurationTest extends TestCase
         $this->assertContains('translate', $standard['queue']);
         $this->assertContains('default', $standard['queue']);
         // ...the job routed to it...
-        $this->assertSame('translate', RetrieveIP::$onQueue);
+        $this->assertSame('translate', $this->routeFor(RetrieveIP::class));
         // ...and the queue registered for admin tooling.
         $this->assertContains('translate', $this->app()->getContainer()->make('flarum.queue.queues'));
     }
@@ -340,7 +355,7 @@ class HorizonConfigurationTest extends TestCase
     #[Test]
     public function route_job_without_a_supervisor_sets_the_queue_but_attaches_to_no_profile()
     {
-        // Two-arg routeJob only sets $onQueue + registers the queue; it does NOT
+        // Two-arg routeJob only registers the route + the queue name; it does NOT
         // put the queue on any supervisor (a worker won't consume it until a
         // profile serves it). This documents the distinction.
         $this->extend(
@@ -351,7 +366,7 @@ class HorizonConfigurationTest extends TestCase
         // then assert.
         $known = $this->app()->getContainer()->make('flarum.queue.queues');
 
-        $this->assertSame('translate', RetrieveIP::$onQueue);
+        $this->assertSame('translate', $this->routeFor(RetrieveIP::class));
         $this->assertContains('translate', $known);
         // standard is untouched — no supervisor serves `translate`.
         $this->assertNotContains('translate', $this->supervisor('standard')['queue']);

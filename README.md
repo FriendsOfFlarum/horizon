@@ -326,6 +326,12 @@ return [
         ->routeJob(\Your\Extension\Jobs\TranslateJob::class, 'translate', 'standard')
         ->routeJob(\Your\Extension\Jobs\RealtimeJob::class, 'realtime')
 
+        // Routing an abstract base (or interface) covers every job that extends
+        // (or implements) it — route the base once and all its concrete
+        // subclasses inherit the queue. A more specific route on a subclass
+        // still wins over the base.
+        ->routeJob(\Your\Extension\Jobs\AbstractExportJob::class, 'long')
+
         // Add extra queues under an existing profile without touching its other
         // settings — handy for base images layering their own queues on.
         ->queueOn('long', 'exports', 'gdpr')
@@ -760,6 +766,15 @@ fallback):
   layout, move it to [`useRawConfig()`](#taking-full-manual-control-userawconfig),
   which bypasses the profile system. `->config()` still works for other
   top-level Horizon keys.
+- **Setting a job's queue via its static `$onQueue` property no longer works.**
+  Job routing now goes through Flarum core's queue-route map, which
+  Horizon's `routeJob()` writes to for you. If you previously set a queue by
+  assigning to a job class's static property — including on a shared abstract
+  base — replace it with `->routeJob(JobClass::class, 'queue')`. Routing the
+  abstract base still covers all its subclasses (see
+  [Configuring profiles in extend.php](#configuring-profiles-in-extendphp)), and
+  because routing is now keyed per class rather than shared through a static,
+  routing several job classes no longer collides.
 
 After upgrading, run `php flarum horizon:terminate` so the master restarts with
 the new configuration.

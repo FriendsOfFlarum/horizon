@@ -14,6 +14,7 @@
 namespace FoF\Horizon;
 
 use Flarum\Extension\ExtensionManager;
+use Illuminate\Queue\QueueRoutes;
 
 /**
  * Wires Flarum's own queued work onto the built-in supervisor profiles, so a
@@ -24,16 +25,16 @@ use Flarum\Extension\ExtensionManager;
  *  - flarum/gdpr jobs      → `gdpr`     queue, served by the `long` profile (when enabled)
  *  - fof/geoip lookups     → `iplookup` queue on the always-on `standard` profile (when enabled)
  *
- * Routing a class means two things: setting its static `$onQueue` (so dispatched
- * jobs land on the right queue) and ensuring the serving profile lists that
- * queue and has workers. For the extension-conditional profiles (`fast`,
- * `long`) that also means bringing them online — they default to zero
+ * Routing a class means two things: registering it in core's queue-route map
+ * (so dispatched jobs land on the right queue) and ensuring the serving profile
+ * lists that queue and has workers. For the extension-conditional profiles
+ * (`fast`, `long`) that also means bringing them online — they default to zero
  * processes, so without this they would stay dormant.
  *
- * Every job class is routed by its abstract base: `$onQueue` is a static
- * property inherited by every concrete subclass that does not redeclare it, so
- * routing the base covers them all. Absent classes/extensions are skipped, so
- * this is safe whether or not realtime/gdpr are installed.
+ * Routing is registered against each extension's abstract base job class; core's
+ * QueueRoutes resolves a job's queue through its class hierarchy, so routing the
+ * base covers every concrete subclass. Absent classes/extensions are skipped, so
+ * this is safe whether or not realtime/gdpr/geoip are installed.
  */
 class BuiltInRouting
 {
@@ -49,7 +50,8 @@ class BuiltInRouting
     ];
 
     public function __construct(
-        private ExtensionManager $extensions
+        private ExtensionManager $extensions,
+        private QueueRoutes $routes
     ) {
     }
 
@@ -119,7 +121,8 @@ class BuiltInRouting
     }
 
     /**
-     * Set AbstractJob::$onQueue on each class, skipping any that isn't installed.
+     * Register each class in core's queue-route map, skipping any that isn't
+     * installed.
      *
      * @param array<int, class-string> $classes
      */
@@ -127,7 +130,7 @@ class BuiltInRouting
     {
         foreach ($classes as $class) {
             if (class_exists($class)) {
-                $class::$onQueue = $queue;
+                $this->routes->set($class, $queue);
             }
         }
     }
