@@ -8,9 +8,12 @@ export type Lock = { source: 'env' | 'code'; value: unknown };
  * the input and explain why. `suffix` is the setting key without the
  * `fof-horizon.` prefix (e.g. `email_concurrency`, `trim.recent`).
  *
- * Returns the base setting config unchanged when the setting is not locked.
+ * Generic in the config shape so the caller's setting type is preserved (the
+ * setting builders type-check their argument); returns the base config
+ * unchanged when the setting is not locked, otherwise the same shape with
+ * `disabled` set and the lock reason appended to `help`.
  */
-export function lockable(suffix: string, base: Record<string, any>): Record<string, any> {
+export function lockable<T extends { help?: unknown }>(suffix: string, base: T): T {
   const locks = (app.data.horizonLockedSettings ?? {}) as Record<string, Lock>;
   const lock = locks[suffix];
 
