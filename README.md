@@ -318,6 +318,12 @@ return [
         // Route a job onto a queue. This sets the job's queue AND registers it
         // so the dashboard and per-queue pause know about it. If the job class
         // isn't installed it's skipped, so optional dependencies are safe.
+        //
+        // Pass a third argument to also attach that queue to a supervisor in one
+        // go — e.g. put a translation job's queue on the always-on `standard`
+        // pool. Without it, the job is routed but no worker consumes the queue
+        // until a supervisor serves it.
+        ->routeJob(\Your\Extension\Jobs\TranslateJob::class, 'translate', 'standard')
         ->routeJob(\Your\Extension\Jobs\RealtimeJob::class, 'realtime')
 
         // Add extra queues under an existing profile without touching its other
@@ -334,9 +340,57 @@ return [
 ];
 ```
 
+##### Adding queues to a supervisor
+
+A very common need — especially for base images and site skeletons — is to run
+your own extra queues on an existing profile without redefining it. `queueOn()`
+**appends** to a supervisor's queue list, leaving its worker count and every
+other setting untouched:
+
+```php
+return [
+    // Put three extra queues on the `long` profile alongside whatever it
+    // already serves. Repeated/duplicate names are de-duplicated.
+    (new FoF\Horizon\Extend\Horizon)
+        ->queueOn('long', 'exports', 'gdpr', 'migration'),
+];
+```
+
+The appended queues are also registered with core so the dashboard and
+per-queue pause cover them. Use `queueOn()` when you just want to add work to a
+tier; use `supervisor(name, ['queues' => [...]])` when you want to *set* (and
+thereby replace) a profile's full queue list.
+
 To start from a blank slate instead of the four built-in profiles, call
-`->withoutDefaultProfiles()`. The raw `->config()` / `->environment()` escape
-hatches remain for anything the builder doesn't model.
+`->withoutDefaultProfiles()`.
+
+#### Taking full manual control (`useRawConfig`)
+
+If the profile model doesn't fit your setup, bypass it entirely and hand-write
+the worker layout with `useRawConfig()`. Pass the supervisor map for the
+current environment (supervisor name => options); fof/horizon keys it under the
+running environment for you, so you don't hardcode `production`/`testing`/etc.
+This **replaces** the profile system: no default profiles, no automatic job
+routing.
+
+```php
+(new FoF\Horizon\Extend\Horizon)->useRawConfig([
+    'supervisor-1' => [
+        'connection'   => 'redis',
+        'queue'        => ['default'],
+        'balance'      => 'auto',
+        'maxProcesses' => 10,
+        // ...any Laravel Horizon supervisor options
+    ],
+]);
+```
+
+> **Note:** `->config()` remains available for other top-level Horizon keys
+> (e.g. `fast_termination`, `waits`), but it can **no longer** set the worker
+> layout — passing an `environments`/`supervisors` array to it (or
+> `->environment()`, or `config.php`'s `horizon.environments`) throws at boot,
+> because the profile system owns that. Use profiles or `useRawConfig()`
+> instead. See [Breaking changes](#breaking-changes-supervisor-profiles).
 
 #### Automatic worker memory limit
 
@@ -694,10 +748,18 @@ fallback):
 - **The `fof-horizon.supervisor.*` admin settings are gone.** Configure
   profiles via `config.php` or the `Horizon` extender instead.
 - **`config.php` uses `horizon.supervisors` (plural), keyed by profile name.**
-  The old single `horizon.supervisor` block, and a hand-written
-  `environments`/`defaults` array passed to `->config()`, are replaced by the
-  profile model. `->config()` still works as a raw escape hatch, but the
-  built-in `standard`/`fast`/`long`/`emails` profiles are the recommended path.
+  The old single `horizon.supervisor` block is replaced by the profile model.
+- **A hand-written worker layout now throws instead of being silently ignored.**
+  The profile system owns Horizon's `environments`, so passing an
+  `environments`/`supervisors` array to the extender's `->config()` or
+  `->environment()`, or setting `horizon.environments` in `config.php`, throws
+  at boot with a pointer to the supported paths. This is deliberate: previously
+  such a config was quietly dropped and the site ran the wrong layout. **Migrate
+  to profiles** (`supervisor()`/`routeJob()`/`queueOn()`, or
+  `config.php`'s `horizon.supervisors`), or, to keep hand-writing the full
+  layout, move it to [`useRawConfig()`](#taking-full-manual-control-userawconfig),
+  which bypasses the profile system. `->config()` still works for other
+  top-level Horizon keys.
 
 After upgrading, run `php flarum horizon:terminate` so the master restarts with
 the new configuration.
