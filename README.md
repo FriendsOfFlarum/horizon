@@ -18,7 +18,7 @@ A comprehensive queue management solution for Flarum, powered by [Laravel Horizo
 ## Requirements
 
 - **Flarum 2.0+**
-- **Redis Server** (required for Horizon to function)
+- **Redis Compatible Server** (required for Horizon to function)
 
 ## Installation
 
@@ -124,94 +124,189 @@ return [
 ];
 ```
 
-### Configuration Layers
+### Supervisor profiles
 
-The most common tunables can be set in three places. Higher layers override
-lower ones, so operators can pin values per deployment without touching the
-database:
+Horizon organises workers into **supervisor profiles** — named worker pools,
+each tuned for a class of job. Four profiles ship out of the box:
+
+| Profile | Timeout | Purpose | Default state |
+|---|---|---|---|
+| `standard` | 60s | Regular queue jobs — ordinary background work | **active** (base 1 × 6 processes) |
+| `emails` | 120s | Outbound mail; retries transient failures (`tries: 3`) | **active**, serves the `mail` queue |
+| `fast` | 3s | Quick jobs that mustn't back up — the short timeout kills a hung one early rather than clogging the lane | active **when `flarum/realtime` is enabled** |
+| `long` | 3600s | Heavy lifting — slow, resource-hungry jobs; 4× memory | active **when `flarum/gdpr` is enabled** |
+
+**Sensible defaults, no configuration.** Horizon wires Flarum's own queued work
+onto these profiles automatically:
+
+- **`standard`** runs by default for general work.
+- **`emails`** runs by default and serves the `mail` queue — every install sends
+  mail, so core's mail jobs (notifications, informational emails) are routed
+  onto it out of the box. It's capped by your mail provider's connection budget
+  rather than host CPU, so it uses a small fixed process count and retries
+  (mail failures are often transient).
+- **`fast`** comes online automatically when **`flarum/realtime`** is enabled,
+  serving a `realtime` queue that realtime's push jobs are routed onto.
+- **`long`** comes online automatically when **`flarum/gdpr`** is enabled,
+  serving a `gdpr` queue that GDPR's export/erasure jobs are routed onto.
+- **`fof/geoip`**, when enabled, gets an `iplookup` queue — but this one rides
+  the always-on `standard` pool rather than a dedicated tier. IP lookups are
+  light background work; the separate queue just stops them sitting behind
+  slower `default` jobs, at no extra worker cost.
+
+Absent extensions are simply skipped, so this is safe whichever ones you run.
+
+**Scale to zero.** A profile with no queue routed to it and no workers stays
+dormant and costs nothing — that's why `fast` and `long` do nothing until their
+extension is present (or you bring them online yourself). You can raise any
+profile's process count, route more queues onto it, or define new profiles; see
+below. A profile given processes but no queues is a configuration error and
+Horizon will refuse to start (see
+[Failing fast](#failing-fast-on-misconfiguration)).
+
+### Sizing the Horizon host
+
+Horizon runs a pool of **worker processes**, and each one is a full PHP process
+that uses a CPU core when busy and holds its own memory. Size the host,
+container or VM that runs Horizon around the workers you have active — under-
+provisioning shows up as the OS OOM-killing workers or jobs crawling because
+every worker is fighting for a core.
+
+**Memory** is the easy one to get wrong: it's *(processes × per-worker memory)*,
+summed across active profiles, plus the master and general PHP overhead. With
+the built-in defaults:
+
+| Active profile | Processes | Memory / worker | Subtotal |
+|---|---|---|---|
+| `standard` (always) | 6 | 128 MB | 768 MB |
+| `emails` (always) | 1 | 128 MB | 128 MB |
+| `fast` (if realtime enabled) | 12 | 128 MB | 1536 MB |
+| `long` (if gdpr enabled) | 1 | 512 MB | 512 MB |
+
+So a **fresh install** wants on the order of **~1 GB** of RAM for the queue
+alone (≈900 MB of workers plus headroom); with realtime and gdpr enabled and at
+default scaling that climbs toward **~3 GB**. These are ceilings — the
+`auto`/`simple` balancers only run as many workers as there is work for — but
+provision for the ceiling so a burst doesn't get OOM-killed. Because `long`
+workers each get a 512 MB budget, Horizon automatically raises the worker
+`memory_limit` to the largest supervisor budget (see
+[Automatic worker memory limit](#automatic-worker-memory-limit)).
+
+**CPU:** each busy worker saturates roughly one core, so the total worker count
+across active profiles is a good guide to how many cores you want available.
+You do **not** need one core per worker — queue work is bursty and often
+I/O-bound (waiting on the database, mail server or HTTP) — but a host with far
+fewer cores than busy workers will see jobs queue behind CPU rather than run in
+parallel. A useful rule of thumb: **cores ≈ the number of workers you expect
+busy at once**, which for most forums is well below the configured maximum.
+
+**Scale to your box, not the defaults.** The defaults suit a modest dedicated
+host. If you run Horizon somewhere smaller — a shared container, a 1 GB VPS —
+turn the process counts *down* (e.g. `REDIS_HORIZON_STANDARD_MAX_PROCESSES=2`)
+rather than leaving the defaults and hoping; a handful of workers that fit in
+RAM beats a dozen that get killed. See
+[Configuration layers](#configuration-layers) for how.
+
+### Controlling email throughput
+
+The most common thing you'll want to cap is **how many emails go out at once** —
+mail providers limit concurrent connections, and exceeding that gets you
+throttled or blocked. Because each email worker sends one message at a time,
+this is simply the `emails` profile's worker count, and Horizon gives it a
+dedicated, purpose-named control on every surface (highest precedence first):
+
+```bash
+# Environment variable
+REDIS_HORIZON_EMAIL_CONCURRENCY=4
+```
+
+```php
+// config.php
+'horizon' => [
+    'email_concurrency' => 4,
+],
+```
+
+```php
+// extend.php
+(new FoF\Horizon\Extend\Horizon)->emailConcurrency(4),
+```
+
+…or the **Simultaneous outgoing emails** field on the Horizon admin page. Set it
+to your provider's concurrent-connection limit. It defaults to 1 and takes
+precedence over a generic `emails` process count, so it's the single knob to
+reach for.
+
+### Configuration layers
+
+Every tunable resolves through four layers, highest precedence first, so you
+can pin values per deployment without touching the database:
 
 1. **Environment variables** (highest) — ideal for Docker/Kubernetes
 2. **config.php** — under the `horizon` key
-3. **Admin settings UI** — Administration → Horizon
-4. Built-in defaults (lowest)
+3. **extend.php** — the `Horizon` extender (see below)
+4. Built-in profile defaults (lowest)
 
-| Setting | Admin UI / setting key | config.php (`horizon.` key) | Environment variable | Default |
-|---|---|---|---|---|
-| Worker processes | `fof-horizon.supervisor.processes` | `supervisor.processes` | `FOF_HORIZON_PROCESSES` | 4 |
-| Worker memory (MB) | `fof-horizon.supervisor.memory` | `supervisor.memory` | `FOF_HORIZON_MEMORY` | 128 |
-| Job tries | `fof-horizon.supervisor.tries` | `supervisor.tries` | `FOF_HORIZON_TRIES` | 3 |
-| Queues (comma-separated) | `fof-horizon.supervisor.queues` | `supervisor.queues` | `FOF_HORIZON_QUEUES` | `default` |
-| Balance strategy | `fof-horizon.supervisor.balance` | `supervisor.balance` | `FOF_HORIZON_BALANCE` | `auto` |
-| Master memory limit (MB) | `fof-horizon.memory_limit` | `memory_limit` | `FOF_HORIZON_MEMORY_LIMIT` | 128 |
-| Trim settings (minutes) | `fof-horizon.trim.*` | `trim.*` | `FOF_HORIZON_TRIM_*` | 60 / 10080 |
+#### Scaling a profile with environment variables
 
-Example `config.php`:
+Per-profile scaling uses `REDIS_HORIZON_<PROFILE>_*` variables and a
+**base × multiplier** model. A literal `MAX_PROCESSES` / `MEMORY_LIMIT` wins
+outright; otherwise the base is multiplied by the multiplier:
+
+| Variable | Meaning |
+|---|---|
+| `REDIS_HORIZON_<PROFILE>_MAX_PROCESSES` | Literal process count (overrides the multiplier) |
+| `REDIS_HORIZON_<PROFILE>_PROCESSES_MULTIPLIER` | Multiplier applied to the base process count |
+| `REDIS_HORIZON_<PROFILE>_MEMORY_LIMIT` | Literal per-process memory in MB |
+| `REDIS_HORIZON_<PROFILE>_MEMORY_MULTIPLIER` | Multiplier applied to the base memory |
+
+`<PROFILE>` is the upper-cased profile name — `STANDARD`, `FAST`, `LONG`,
+`EMAILS`, or your own. Global (non-profile) tunables keep a plain
+`REDIS_HORIZON_*` name:
+
+| Setting | config.php (`horizon.` key) | Environment variable | Default |
+|---|---|---|---|
+| Master memory limit (MB) | `memory_limit` | `REDIS_HORIZON_MEMORY_LIMIT` | 128 (auto-raised, see below) |
+| Trim settings (minutes) | `trim.*` | `REDIS_HORIZON_TRIM_*` | 60 / 10080 |
+
+> **Note:** `REDIS_*` (without `HORIZON_`) belongs to
+> [FoF Redis](https://github.com/FriendsOfFlarum/redis) — that's your Redis
+> *connection* (host, port, database, prefix). `REDIS_HORIZON_*` is Horizon's
+> *worker scaling*. Two concerns, two prefixes.
+
+Bring the `fast` tier online with three workers, for example:
+
+```bash
+REDIS_HORIZON_FAST_MAX_PROCESSES=3
+```
+
+#### Configuring profiles in config.php
+
+Environment variables set scaling; `config.php` can set anything else on a
+profile — the queues it serves, its balance strategy, timeout, or any Horizon
+key. Scaling values here are overridden by the matching env var.
 
 ```php
 'horizon' => [
-    'supervisor' => [
-        'processes' => 10,
-        'memory'    => 256,
-        'queues'    => ['default', 'media'],
+    'supervisors' => [
+        // Bring `fast` online and point it at your realtime queue.
+        'fast' => [
+            'queues'    => ['realtime'],
+            'processes' => 3,
+        ],
+        // A heavy tier for bulk work.
+        'long' => [
+            'queues' => ['exports', 'gdpr'],
+        ],
     ],
     'memory_limit' => 256,
 ],
 ```
 
-Example environment variables:
+#### Configuring profiles in extend.php
 
-```bash
-FOF_HORIZON_PROCESSES=10
-FOF_HORIZON_MEMORY=256
-FOF_HORIZON_QUEUES=default,media
-```
-
-> **Note:** Supervisor settings are read when Horizon starts. Restart Horizon
-> (`php flarum horizon:terminate`) after changing them.
-
-If your extensions route jobs onto named queues (core's
-`AbstractJob::$onQueue`), add those queue names to the queues list — workers
-only consume the queues configured here.
-
-### Customizing Horizon Configuration
-
-You can override Horizon's default configuration by creating a custom config file:
-
-**1. Create a Horizon config file** (e.g., `config/horizon.php` in your Flarum root):
-
-```php
-<?php
-
-return [
-    'defaults' => [
-        'supervisor-1' => [
-            'connection' => 'redis',
-            'queue' => ['default'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 10,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 128,
-            'tries' => 3,
-            'timeout' => 60,
-            'nice' => 0,
-        ],
-    ],
-
-    'environments' => [
-        'production' => [
-            'supervisor-1' => [
-                'maxProcesses' => 20,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-            ],
-        ],
-    ],
-];
-```
-
-**2. Register your config in `extend.php`:**
+The `Horizon` extender is the most expressive surface — it also lets you route
+jobs onto queues and register brand-new profiles:
 
 ```php
 <?php
@@ -219,9 +314,52 @@ return [
 use FoF\Horizon\Extend\Horizon;
 
 return [
-    (new Horizon)->config('./config/horizon.php'),
+    (new Horizon)
+        // Route a job onto a queue. This sets the job's queue AND registers it
+        // so the dashboard and per-queue pause know about it. If the job class
+        // isn't installed it's skipped, so optional dependencies are safe.
+        ->routeJob(\Your\Extension\Jobs\RealtimeJob::class, 'realtime')
+
+        // Add extra queues under an existing profile without touching its other
+        // settings — handy for base images layering their own queues on.
+        ->queueOn('long', 'exports', 'gdpr')
+
+        // Override a profile's knobs. Recognised keys map onto the profile;
+        // anything else (nice, balanceMaxShift, retry_after, …) passes straight
+        // through to Horizon.
+        ->supervisor('fast', ['queues' => ['realtime'], 'processes' => 12])
+
+        // Define a brand-new profile.
+        ->supervisor('media', ['queues' => ['thumbnails'], 'timeout' => 300, 'processes' => 2]),
 ];
 ```
+
+To start from a blank slate instead of the four built-in profiles, call
+`->withoutDefaultProfiles()`. The raw `->config()` / `->environment()` escape
+hatches remain for anything the builder doesn't model.
+
+#### Automatic worker memory limit
+
+Horizon raises the forked worker's PHP `memory_limit` to the largest supervisor
+`memory` budget automatically. Without this, a worker whose supervisor budget
+exceeds the CLI `memory_limit` hits PHP's fatal "Allowed memory size exhausted"
+*before* Horizon's graceful memory check can restart it. An explicit
+`REDIS_HORIZON_MEMORY_LIMIT` still wins if you set it higher.
+
+#### Failing fast on misconfiguration
+
+Horizon validates scaling at boot and **throws** (rather than silently falling
+back to a default) when:
+
+- a `REDIS_HORIZON_*` scaling value is not a positive integer, or
+- a profile is given processes but no queues (it would otherwise silently drain
+  `default`, duplicating the `standard` pool).
+
+A misconfigured worker fleet should fail loudly at startup, not quietly run the
+wrong shape.
+
+> **Note:** Supervisor settings are read when Horizon starts. Restart Horizon
+> (`php flarum horizon:terminate`) after changing them.
 
 ## Running Horizon
 
@@ -486,36 +624,34 @@ There are two separate memory limits:
 - **`memory_limit`** — the master supervisor process. When exceeded, Horizon restarts itself gracefully. Default: 128 MB.
 - **`memory`** (per supervisor) — each individual worker process. When exceeded after a job completes, the worker is recycled. Default: 128 MB.
 
-**Solution:** Override either limit via `config.php`:
+**Solution:** Raise the master limit via `config.php`, and the per-worker limit
+on the relevant profile:
 
 ```php
 'horizon' => [
     'memory_limit' => 256, // MB — master supervisor
+    'supervisors' => [
+        'standard' => [
+            'memory' => 256, // MB — per worker in this profile
+        ],
+    ],
 ],
 ```
 
-Or via the `Horizon` extender in `extend.php`:
+Note that Horizon already raises the master `memory_limit` to the largest
+per-worker budget automatically, so you rarely need to set it by hand — see
+[Automatic worker memory limit](#automatic-worker-memory-limit).
+
+You can also limit how long a worker runs before being recycled by passing the
+standard Horizon keys through a profile:
 
 ```php
-(new \FoF\Horizon\Extend\Horizon)->config([
-    'memory_limit' => 256, // MB — master supervisor
-    'environments' => [
-        'production' => [
-            'supervisor-1' => [
-                'memory' => 256, // MB — per worker
-            ],
+'horizon' => [
+    'supervisors' => [
+        'standard' => [
+            'maxJobs' => 1000, // restart the worker after X jobs
+            'maxTime' => 3600, // restart the worker after X seconds
         ],
-    ],
-]),
-```
-
-You can also limit how long a worker runs before being recycled:
-
-```php
-'defaults' => [
-    'supervisor-1' => [
-        'maxJobs' => 1000, // Restart after X jobs
-        'maxTime' => 3600, // Restart after X seconds
     ],
 ],
 ```
@@ -543,6 +679,29 @@ php flarum cache:clear
 php flarum horizon:terminate
 ```
 
+### Breaking changes: supervisor profiles
+
+The worker configuration model changed. Sites that customised workers must
+migrate — the old settings no longer have any effect (there is no automatic
+fallback):
+
+- **`FOF_HORIZON_*` environment variables are gone.** Per-profile scaling now
+  uses `REDIS_HORIZON_<PROFILE>_*` (see
+  [Scaling a profile with environment variables](#scaling-a-profile-with-environment-variables)),
+  and global tunables use `REDIS_HORIZON_*`. Migrate, e.g.
+  `FOF_HORIZON_PROCESSES=10` → `REDIS_HORIZON_STANDARD_MAX_PROCESSES=10`,
+  `FOF_HORIZON_QUEUES=...` → route those queues onto a profile.
+- **The `fof-horizon.supervisor.*` admin settings are gone.** Configure
+  profiles via `config.php` or the `Horizon` extender instead.
+- **`config.php` uses `horizon.supervisors` (plural), keyed by profile name.**
+  The old single `horizon.supervisor` block, and a hand-written
+  `environments`/`defaults` array passed to `->config()`, are replaced by the
+  profile model. `->config()` still works as a raw escape hatch, but the
+  built-in `standard`/`fast`/`long`/`emails` profiles are the recommended path.
+
+After upgrading, run `php flarum horizon:terminate` so the master restarts with
+the new configuration.
+
 Then restart Horizon (via Supervisor or manually).
 
 ## Migration from Blomstra Redis
@@ -557,7 +716,7 @@ If you're upgrading from the older `blomstra/redis` package:
 - **Packagist:** [fof/horizon](https://packagist.org/packages/fof/horizon)
 - **GitHub:** [FriendsOfFlarum/horizon](https://github.com/FriendsOfFlarum/horizon)
 - **Discuss:** [Flarum Community](https://discuss.flarum.org/d/27520)
-- **Documentation:** [Laravel Horizon Docs](https://laravel.com/docs/11.x/horizon)
+- **Documentation:** [Laravel Horizon Docs](https://laravel.com/docs/horizon)
 
 ## License
 

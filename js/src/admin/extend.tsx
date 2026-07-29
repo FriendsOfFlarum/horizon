@@ -26,6 +26,26 @@ export default [
     .customSetting(
       () => (
         <div>
+          <h3>{trans('mail_title')}</h3>
+          <p className="helpText">{trans('mail_help')}</p>
+        </div>
+      ),
+      96
+    )
+    .setting(
+      () => ({
+        type: 'number',
+        min: 1,
+        setting: 'fof-horizon.email_concurrency',
+        label: trans('email_concurrency'),
+        help: trans('email_concurrency_help'),
+        placeholder: 1,
+      }),
+      95
+    )
+    .customSetting(
+      () => (
+        <div>
           <h3>{trans('trim_title')}</h3>
           <p className="helpText">{trans('trim_help')}</p>
         </div>

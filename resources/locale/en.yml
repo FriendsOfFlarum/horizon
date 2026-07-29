@@ -1,6 +1,17 @@
 fof-horizon:
   admin:
     settings:
+      mail_title: Email Delivery
+      mail_help: |
+        Control how many emails are sent at the same time. Each worker sends one
+        email at a time, so this is the number of simultaneous outgoing messages.
+        Set it to your mail provider's concurrent-connection limit so you don't
+        exceed it. Leave blank for the default (1).
+      email_concurrency: Simultaneous outgoing emails
+      email_concurrency_help: |
+        The maximum number of emails delivered at once. An environment variable
+        (REDIS_HORIZON_EMAIL_CONCURRENCY) or config.php value, if set, overrides
+        this.
       trim_title: Trim Settings
       trim_help: |
         Here you can configure for how long (in minutes) you desire Horizon to

@@ -21,12 +21,17 @@ use Illuminate\Support\Arr;
  * Resolves an fof/horizon configuration value through the supported layers,
  * highest precedence first:
  *
- *  1. Environment variables — FOF_HORIZON_<KEY> (e.g. FOF_HORIZON_PROCESSES,
- *     FOF_HORIZON_TRIM_COMPLETED). The `supervisor.` prefix is dropped from
- *     the variable name.
- *  2. config.php — under the `horizon` key (e.g. horizon.supervisor.processes).
+ *  1. Environment variables. Global tunables use REDIS_HORIZON_<KEY> (e.g.
+ *     REDIS_HORIZON_MEMORY_LIMIT, REDIS_HORIZON_TRIM_COMPLETED); per-profile
+ *     scaling uses the explicit keys resolved by {@see ProfileResolver}. All
+ *     Horizon env vars share the REDIS_HORIZON_ prefix so they group with
+ *     fof/redis's REDIS_ connection vars without colliding with them.
+ *  2. config.php — under the `horizon` key (e.g. horizon.supervisors.long.processes).
  *  3. Admin settings — `fof-horizon.<key>`.
  *  4. The given default.
+ *
+ * Prior to the profile rework these keys were prefixed FOF_HORIZON_; that
+ * prefix is retired. See the upgrade notes for the migration.
  */
 class LayeredConfig
 {
@@ -38,25 +43,46 @@ class LayeredConfig
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $env = getenv($this->envKey($key));
+        $value = $this->raw($this->envKey($key), $key);
+
+        return $value ?? $default;
+    }
+
+    /**
+     * Look a value up across env → config.php → settings, returning null if it
+     * is absent from every layer (so callers can tell "unset" from a real 0).
+     *
+     * Both keys are given explicitly because the env and config vocabularies
+     * differ for per-profile scaling: the env side uses REDIS_HORIZON_* while
+     * config.php/settings use dotted `horizon.*` / `fof-horizon.*` paths.
+     *
+     * @param string      $envKey    the full environment variable name
+     * @param string|null $configKey dotted path under the `horizon` config key
+     *                                and `fof-horizon.` settings prefix
+     */
+    public function raw(string $envKey, ?string $configKey = null): mixed
+    {
+        $env = getenv($envKey);
 
         if ($env !== false && $env !== '') {
             return $env;
         }
 
-        $fromConfig = Arr::get($this->config->offsetGet('horizon') ?? [], $key);
+        if ($configKey !== null) {
+            $fromConfig = Arr::get($this->config->offsetGet('horizon') ?? [], $configKey);
 
-        if ($fromConfig !== null) {
-            return $fromConfig;
+            if ($fromConfig !== null) {
+                return $fromConfig;
+            }
+
+            $fromSettings = $this->settings->get('fof-horizon.'.$configKey);
+
+            if ($fromSettings !== null && $fromSettings !== '') {
+                return $fromSettings;
+            }
         }
 
-        $fromSettings = $this->settings->get('fof-horizon.'.$key);
-
-        if ($fromSettings !== null && $fromSettings !== '') {
-            return $fromSettings;
-        }
-
-        return $default;
+        return null;
     }
 
     public function integer(string $key, int $default): int
@@ -92,6 +118,6 @@ class LayeredConfig
             $key = substr($key, strlen('supervisor.'));
         }
 
-        return 'FOF_HORIZON_'.strtoupper(str_replace('.', '_', $key));
+        return 'REDIS_HORIZON_'.strtoupper(str_replace('.', '_', $key));
     }
 }
