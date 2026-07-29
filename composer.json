@@ -57,8 +57,11 @@
         }
     },
     "require-dev": {
+        "flarum/gdpr": "*",
         "flarum/phpstan": "^2.0.0",
-        "flarum/testing": "^2.0.0"
+        "flarum/realtime": "*",
+        "flarum/testing": "^2.0.0",
+        "fof/geoip": "*"
     },
     "scripts": {
         "analyse:phpstan": "phpstan analyse",

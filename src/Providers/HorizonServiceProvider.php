@@ -13,15 +13,19 @@
 
 namespace FoF\Horizon\Providers;
 
+use Flarum\Extension\ExtensionManager;
 use Flarum\Foundation\Config;
 use Flarum\Foundation\Paths;
 use Flarum\Http\UrlGenerator;
 use Flarum\Queue\QueueStatsProvider;
 use Flarum\Settings\SettingsRepositoryInterface;
+use FoF\Horizon\BuiltInRouting;
+use FoF\Horizon\DefaultProfiles;
 use FoF\Horizon\Dispatcher\Notifier;
 use FoF\Horizon\HorizonMetrics;
 use FoF\Horizon\LayeredConfig;
 use FoF\Horizon\Overrides\RedisQueue;
+use FoF\Horizon\ProfileResolver;
 use FoF\Horizon\Queue\HorizonQueueStatsProvider;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Bus\BatchFactory;
@@ -76,6 +80,7 @@ class HorizonServiceProvider extends Provider
         $this->registerEvents();
 
         $this->registerQueueStatsProvider();
+        $this->registerBuiltInQueues();
     }
 
     /**
@@ -105,6 +110,76 @@ class HorizonServiceProvider extends Provider
                 $container->make(HorizonMetrics::class)
             );
         });
+    }
+
+    /**
+     * Register the queues our built-in routing puts into use (mail, plus
+     * realtime/gdpr when those extensions are enabled) into core's known-queues
+     * registry, so the dashboard and per-queue pause cover them. Guarded so
+     * older cores without the registry are untouched.
+     */
+    protected function registerBuiltInQueues(): void
+    {
+        if (!$this->app->bound('flarum.queue.queues')) {
+            return;
+        }
+
+        $queues = (new BuiltInRouting($this->app->make(ExtensionManager::class)))->activeQueues();
+
+        $this->app->extend('flarum.queue.queues', function ($known) use ($queues) {
+            return array_values(array_unique(array_merge(
+                is_array($known) ? $known : ['default'],
+                $queues
+            )));
+        });
+    }
+
+    /**
+     * Resolve the "simultaneous outgoing emails" knob across every surface,
+     * highest precedence first:
+     *
+     *   1. env       REDIS_HORIZON_EMAIL_CONCURRENCY
+     *   2. config.php horizon.email_concurrency
+     *   3. extend.php (new Horizon)->emailConcurrency(n)   [bound container value]
+     *   4. admin UI  fof-horizon.email_concurrency setting
+     *
+     * Returns null when unset at every layer, in which case the emails profile
+     * keeps its own default worker count. A non-numeric value throws, matching
+     * the fail-fast behaviour of the rest of the scaling config.
+     */
+    protected function resolveEmailConcurrency(Container $container): ?int
+    {
+        // env + config.php (raw() handles these two, plus the settings layer —
+        // but we want the extender to sit ABOVE settings, so we read settings
+        // ourselves below rather than let raw() reach it first).
+        $value = getenv('REDIS_HORIZON_EMAIL_CONCURRENCY');
+        $value = ($value !== false && $value !== '') ? $value : null;
+
+        if ($value === null) {
+            $value = Arr::get($container->make('flarum.config')['horizon'] ?? [], 'email_concurrency');
+        }
+
+        if ($value === null && $container->bound('fof-horizon.email_concurrency')) {
+            $value = $container->make('fof-horizon.email_concurrency');
+        }
+
+        if ($value === null) {
+            $setting = $this->app->make(SettingsRepositoryInterface::class)->get('fof-horizon.email_concurrency');
+            $value = ($setting !== null && $setting !== '') ? $setting : null;
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_numeric($value) || (int) $value < 1) {
+            throw new \InvalidArgumentException(
+                'Email concurrency (REDIS_HORIZON_EMAIL_CONCURRENCY / horizon.email_concurrency / '
+                ."emailConcurrency()) must be a positive integer, got: {$value}"
+            );
+        }
+
+        return (int) $value;
     }
 
     protected function registerNotificationDispatcher(): void
@@ -223,27 +298,90 @@ class HorizonServiceProvider extends Provider
 
         // Every tunable below resolves through the supported configuration
         // layers, highest precedence first: environment variables
-        // (FOF_HORIZON_*), config.php ('horizon' key), admin settings,
+        // (REDIS_HORIZON_*), config.php ('horizon' key), admin settings,
         // then the baked-in default.
         $layered = new LayeredConfig($settings, $flarumConfig);
 
         Arr::set($config, 'env', $env);
         Arr::set($config, 'path', trim($path, '/').'/horizon');
         Arr::set($config, 'use', 'horizon');
-        Arr::set($config, 'memory_limit', $layered->integer('memory_limit', 128));
+
+        // Assemble supervisors from the profile set. A site's Horizon extender
+        // registers the (defaults + overrides) profiles under this binding; if
+        // no extender ran, fall back to the built-in defaults so a config- or
+        // env-only site still gets the tiered layout.
+        $profiles = $container->bound('fof-horizon.profiles')
+            ? $container->make('fof-horizon.profiles')
+            : DefaultProfiles::all();
+
+        // Wire Flarum's own queued work onto the built-in profiles: core mail
+        // jobs onto the always-on `emails` profile, and — when their extensions
+        // are enabled — realtime jobs onto `fast` and gdpr jobs onto `long`
+        // (bringing those tiers online). Runs before the config.php/env layers
+        // below so an operator can still tune or override the result.
+        $routing = new BuiltInRouting($container->make(ExtensionManager::class));
+        $profiles = $routing->apply($profiles);
+
+        $resolver = new ProfileResolver($layered);
+
+        // config.php may set non-scaling supervisor properties (queues, balance,
+        // timeout, arbitrary Horizon keys) per profile under horizon.supervisors.
+        // Apply those onto the profile before resolving. The scaling scalars
+        // (processes/memory and their base/multiplier) are intentionally left to
+        // the resolver, which reads them through LayeredConfig so env still wins.
+        $configSupervisors = Arr::get($container->make('flarum.config')['horizon'] ?? [], 'supervisors', []);
+        $scalingKeys = ['processes', 'memory', 'processesBase', 'processesMultiplier', 'memoryBase', 'memoryMultiplier'];
+
+        // "Simultaneous outgoing emails" is a first-class knob: each email worker
+        // sends one message at a time, so it maps onto the emails profile's
+        // worker count. Resolve it across all surfaces (env > config.php >
+        // extender > admin setting) and, when set, pin it as the emails profile's
+        // process count. Passing it to the resolver as a forced value means it
+        // wins over the generic REDIS_HORIZON_EMAILS_MAX_PROCESSES, so there is
+        // one obvious control for email throughput rather than two.
+        $emailConcurrency = $this->resolveEmailConcurrency($container);
+
+        $supervisors = [];
+        $maxMemory = 0;
+
+        foreach ($profiles as $name => $profile) {
+            if (!empty($configSupervisors[$name]) && is_array($configSupervisors[$name])) {
+                $profile = $profile->with(Arr::except($configSupervisors[$name], $scalingKeys));
+            }
+
+            $forcedProcesses = ($name === 'emails') ? $emailConcurrency : null;
+
+            $resolved = $resolver->resolve($profile, 'redis', $forcedProcesses);
+
+            // A profile scaled to zero processes registers no supervisor.
+            if ($resolved === null) {
+                continue;
+            }
+
+            $supervisors['supervisor-'.$name] = $resolved;
+            $maxMemory = max($maxMemory, (int) $resolved['memory']);
+        }
+
+        // A worker forked with a memory budget larger than the CLI
+        // memory_limit hits PHP's fatal "Allowed memory size exhausted" before
+        // Horizon's graceful memory check can restart it. Raise the worker
+        // memory_limit to the largest supervisor budget so no site trips that
+        // silent OOM. An explicit REDIS_HORIZON_MEMORY_LIMIT still wins.
+        $memoryLimit = max($layered->integer('memory_limit', 128), $maxMemory);
+        Arr::set($config, 'memory_limit', $memoryLimit);
 
         Arr::set($config, 'environments', [
-            $env => [
-                'supervisor-1' => [
-                    'connection' => 'redis',
-                    'queue'      => $layered->list('supervisor.queues', ['default']),
-                    'balance'    => $layered->string('supervisor.balance', 'auto'),
-                    'processes'  => $layered->integer('supervisor.processes', 4),
-                    'tries'      => $layered->integer('supervisor.tries', 3),
-                    'memory'     => $layered->integer('supervisor.memory', 128),
-                ],
-            ],
+            $env => $supervisors,
         ]);
+
+        // The vendored horizon.php ships a `defaults` block containing a
+        // `supervisor-1` template. Horizon's ProvisioningPlan merges `defaults`
+        // INTO every environment (array_replace_recursive), so leaving it in
+        // place resurrects `supervisor-1` alongside our profiles on every boot,
+        // regardless of the assembled `environments`. Our profiles are already
+        // fully resolved (each carries its own complete option set), so we do
+        // not use Horizon's defaults mechanism — clear it.
+        Arr::set($config, 'defaults', []);
 
         Arr::set($config, 'trim', [
             'recent'        => $layered->integer('trim.recent', 60),
@@ -261,11 +399,19 @@ class HorizonServiceProvider extends Provider
 
         // Load existing config items and merge these with a possible key in the config.php.
         // Precedence: existing keys from local extenders, config.php and the default horizon.php.
-        // The supervisor and trim keys are consumed per-value by LayeredConfig
-        // above, so they are excluded from this wholesale merge — otherwise a
-        // partial config.php override would clobber the assembled sections.
-        $existing = $repository->get('horizon', []);
-        $config = array_merge($config, Arr::except($rawFlarumConfig['horizon'] ?? [], ['supervisor', 'trim']), $existing);
+        //
+        // `environments`, `supervisors` and `trim` are assembled authoritatively
+        // above (from the profile resolver and LayeredConfig) and MUST NOT be
+        // reintroduced from either source here:
+        //   - `supervisors`/`trim` are consumed per-value, so a partial config.php
+        //     override would otherwise clobber the assembled sections;
+        //   - `environments` is the finished supervisor layout. array_merge is
+        //     not recursive, so a stale `environments` in $existing (e.g. the
+        //     vendored horizon.php default that still carries `supervisor-1`)
+        //     would replace ours wholesale and resurrect that supervisor.
+        $excluded = ['environments', 'supervisors', 'trim'];
+        $existing = Arr::except($repository->get('horizon', []), $excluded);
+        $config = array_merge($config, Arr::except($rawFlarumConfig['horizon'] ?? [], $excluded), $existing);
 
         $repository->set(['horizon' => $config]);
     }

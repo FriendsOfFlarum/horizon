@@ -35,15 +35,17 @@ return [
         ->default('fof-horizon.trim.recent_failed', 10080)
         ->default('fof-horizon.trim.failed', 10080)
         ->default('fof-horizon.trim.monitored', 10080)
-        ->default('fof-horizon.supervisor.processes', 4)
-        ->default('fof-horizon.supervisor.memory', 128)
-        ->default('fof-horizon.supervisor.tries', 3)
-        ->default('fof-horizon.supervisor.queues', 'default')
-        ->default('fof-horizon.supervisor.balance', 'auto')
         ->default('fof-horizon.memory_limit', 128),
 
     (new Flarum\ServiceProvider())
         ->register(Providers\HorizonServiceProvider::class),
+
+    // Restart the Horizon master when an extension is toggled, so a changed
+    // supervisor layout (e.g. a newly routed queue) takes effect without a
+    // manual horizon:terminate. Core already restarts the queue workers on
+    // these events; this mirrors that at the master level.
+    (new Flarum\Event())
+        ->subscribe(Listeners\RestartOnExtensionToggle::class),
 
     (new Flarum\Console())
         ->command(Laravel\HorizonCommand::class)

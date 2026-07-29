@@ -14,6 +14,7 @@
 namespace FoF\Horizon\Content;
 
 use Flarum\Frontend\Document;
+use FoF\Horizon\SettingLocks;
 use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Support\Arr;
@@ -24,7 +25,8 @@ class AdminContent
     use RetrievesRedisInfo;
 
     public function __construct(
-        protected RedisManager $redis
+        protected RedisManager $redis,
+        protected SettingLocks $locks
     ) {
     }
 
@@ -33,6 +35,10 @@ class AdminContent
         $cacheInfo = $this->getCacheInfo();
         $document->payload['cacheStore'] = $cacheInfo['type'];
         $document->payload['cacheVersion'] = $cacheInfo['version'];
+
+        // Settings pinned by a higher-precedence layer (env / config.php /
+        // extend.php). The admin UI disables these inputs and explains why.
+        $document->payload['horizonLockedSettings'] = $this->locks->locks();
 
         $queueDriverString = Arr::get($document->payload, 'queueDriver');
         if ($queueDriverString === 'redis') {

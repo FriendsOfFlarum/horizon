@@ -1,0 +1,150 @@
+<?php
+
+/*
+ * This file is part of fof/horizon.
+ *
+ * Copyright (c) Bokt.
+ * Copyright (c) Blomstra Ltd.
+ * Copyright (c) FriendsOfFlarum
+ *
+ * For the full copyright and license information, please view the LICENSE.md
+ * file that was distributed with this source code.
+ */
+
+namespace FoF\Horizon\Tests\integration;
+
+use Flarum\Gdpr\Jobs\GdprJob;
+use Flarum\Mail\Job\SendInformationalEmailJob;
+use Flarum\Notification\Job\SendEmailNotificationJob;
+use Flarum\Realtime\Push\Jobs\Job as RealtimeJob;
+use Flarum\Testing\integration\TestCase;
+use FoF\GeoIP\Jobs\RetrieveIP;
+use FoF\Redis\Extend\Redis;
+use Illuminate\Contracts\Config\Repository;
+use PHPUnit\Framework\Attributes\Test;
+
+/**
+ * fof/horizon wires Flarum's own queued work onto the built-in profiles with no
+ * configuration: core mail jobs onto the always-on `emails` profile's `mail`
+ * queue, and — when the relevant extension is enabled — realtime jobs onto
+ * `fast`/`realtime` and gdpr jobs onto `long`/`gdpr`, bringing those tiers
+ * online.
+ *
+ * These use the real flarum/realtime and flarum/gdpr packages (dev deps) so the
+ * routed job classes, their $onQueue inheritance and the enabled-checks are all
+ * exercised for real.
+ */
+class BuiltInRoutingTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->extension('fof-horizon');
+
+        $this->extend(
+            (new Redis([
+                'host' => '127.0.0.1',
+                'port' => 6379,
+            ]))->useDatabaseWith('queue', 13)
+        );
+    }
+
+    private function supervisor(string $name): array
+    {
+        $container = $this->app()->getContainer();
+        $config = $container->make(Repository::class)->get('horizon', []);
+        $env = $container->make('env');
+
+        return $config['environments'][$env]['supervisor-'.$name] ?? [];
+    }
+
+    private function knownQueues(): array
+    {
+        return $this->app()->getContainer()->make('flarum.queue.queues');
+    }
+
+    #[Test]
+    public function core_mail_jobs_are_routed_onto_the_mail_queue()
+    {
+        $this->app();
+
+        $this->assertSame('mail', SendEmailNotificationJob::$onQueue);
+        $this->assertSame('mail', SendInformationalEmailJob::$onQueue);
+    }
+
+    #[Test]
+    public function realtime_stays_dormant_when_the_extension_is_disabled()
+    {
+        $this->app();
+
+        // fast has no queues / no supervisor until realtime is enabled.
+        $this->assertSame([], $this->supervisor('fast'));
+        $this->assertNotContains('realtime', $this->knownQueues());
+    }
+
+    #[Test]
+    public function enabling_realtime_brings_fast_online_and_routes_realtime_jobs()
+    {
+        $this->extension('flarum-realtime');
+        $this->app();
+
+        $fast = $this->supervisor('fast');
+
+        $this->assertNotEmpty($fast, 'fast must register once realtime is enabled');
+        $this->assertContains('realtime', $fast['queue']);
+        $this->assertSame('realtime', RealtimeJob::$onQueue);
+        $this->assertContains('realtime', $this->knownQueues());
+    }
+
+    #[Test]
+    public function gdpr_stays_dormant_when_the_extension_is_disabled()
+    {
+        $this->app();
+
+        $this->assertSame([], $this->supervisor('long'));
+        $this->assertNotContains('gdpr', $this->knownQueues());
+    }
+
+    #[Test]
+    public function enabling_gdpr_brings_long_online_and_routes_gdpr_jobs()
+    {
+        $this->extension('flarum-gdpr');
+        $this->app();
+
+        $long = $this->supervisor('long');
+
+        $this->assertNotEmpty($long, 'long must register once gdpr is enabled');
+        $this->assertContains('gdpr', $long['queue']);
+        $this->assertSame('gdpr', GdprJob::$onQueue);
+        $this->assertContains('gdpr', $this->knownQueues());
+    }
+
+    #[Test]
+    public function geoip_stays_unrouted_when_the_extension_is_disabled()
+    {
+        $this->app();
+
+        $this->assertSame(['default'], $this->supervisor('standard')['queue']);
+        $this->assertNotContains('iplookup', $this->knownQueues());
+    }
+
+    #[Test]
+    public function enabling_geoip_adds_iplookup_to_standard_without_a_new_tier()
+    {
+        $this->extension('fof-geoip');
+        $this->app();
+
+        $standard = $this->supervisor('standard');
+
+        // iplookup rides the existing standard pool — no dedicated supervisor,
+        // and standard keeps its normal worker count.
+        $this->assertContains('iplookup', $standard['queue']);
+        $this->assertContains('default', $standard['queue']);
+        $this->assertSame(6, $standard['processes']);
+        $this->assertSame([], $this->supervisor('iplookup'), 'iplookup must not get its own supervisor');
+
+        $this->assertSame('iplookup', RetrieveIP::$onQueue);
+        $this->assertContains('iplookup', $this->knownQueues());
+    }
+}
