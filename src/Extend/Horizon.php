@@ -43,8 +43,9 @@ use Illuminate\Contracts\Container\Container;
  *   // Define a brand-new tier.
  *   (new Horizon)->supervisor('media', ['queues' => ['thumbnails'], 'timeout' => 300]);
  *
- * ->config()/->environment() remain as raw escape hatches for anything the
- * builder does not model.
+ * To hand-write the whole worker layout instead of using profiles, use
+ * useRawConfig(). ->config() remains for other top-level Horizon keys but can
+ * no longer set the environments/supervisors layout (it throws if you try).
  */
 class Horizon implements ExtenderInterface
 {
@@ -94,17 +95,34 @@ class Horizon implements ExtenderInterface
      */
     private ?int $emailConcurrency = null;
 
+    /**
+     * A verbatim Horizon `environments` array supplied via useRawConfig(). When
+     * set, the profile system is bypassed entirely and this is used as-is.
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $rawConfig = null;
+
     public function extend(Container $container, ?Extension $extension = null): void
     {
         /** @var Repository $repository */
         $repository = $container->make(Repository::class);
 
         if ($this->config) {
+            $this->rejectLegacyEnvironments($this->config, '->config()');
             $repository->set('horizon', $this->config);
         }
 
         if ($this->environment) {
-            $repository->set("horizon.environments.{$container->make('env')}", $this->environment);
+            // ->environment() only ever wrote to horizon.environments, which the
+            // profile system now owns — so any use of it is a legacy supervisor
+            // layout that would be silently dropped. Send the operator to the
+            // supported path rather than ignore their configuration.
+            $this->rejectLegacyEnvironments(['environments' => $this->environment], '->environment()');
+        }
+
+        if ($this->rawConfig !== null) {
+            $container->instance('fof-horizon.raw_environments', $this->rawConfig);
         }
 
         if ($this->emailConcurrency !== null) {
@@ -114,6 +132,28 @@ class Horizon implements ExtenderInterface
         $this->registerProfiles($container);
         $this->registerRoutedQueues($container);
         $this->applyJobRoutes();
+    }
+
+    /**
+     * The profile model owns the Horizon `environments`/`supervisors` layout, so
+     * a hand-written one passed through the legacy ->config()/->environment()
+     * escape hatches would be silently discarded. Fail loudly and point at the
+     * supported paths instead of leaving a site running the wrong worker layout.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function rejectLegacyEnvironments(array $config, string $via): void
+    {
+        $offending = array_intersect(['environments', 'supervisors'], array_keys($config));
+
+        if (!empty($offending)) {
+            throw new \InvalidArgumentException(
+                "fof/horizon no longer applies a hand-written '".implode("'/'", $offending)."' array passed via {$via}; "
+                .'the worker layout is managed by supervisor profiles. Configure profiles with '
+                .'supervisor()/routeJob()/queueOn(), or, to take full manual control, pass your '
+                .'environments array to useRawConfig() which bypasses the profile system.'
+            );
+        }
     }
 
     /**
@@ -277,7 +317,41 @@ class Horizon implements ExtenderInterface
     }
 
     /**
+     * Take full manual control of Horizon's worker layout, bypassing the
+     * supervisor-profile system entirely — no default profiles, no automatic
+     * job routing.
+     *
+     * Pass the supervisor map for the current environment (supervisor name =>
+     * options). fof/horizon keys it under the running environment for you, so
+     * you don't have to know or hardcode whether that's "production",
+     * "testing", etc:
+     *
+     *   (new Horizon)->useRawConfig([
+     *       'supervisor-1' => [
+     *           'connection' => 'redis',
+     *           'queue'      => ['default'],
+     *           'balance'    => 'auto',
+     *           'maxProcesses' => 10,
+     *           // ...any Laravel Horizon supervisor options
+     *       ],
+     *   ]);
+     *
+     * @param array<string, array<string, mixed>> $supervisors supervisor name => options
+     */
+    public function useRawConfig(array $supervisors): self
+    {
+        $this->rawConfig = $supervisors;
+
+        return $this;
+    }
+
+    /**
      * Use a configuration file or array to configure Horizon.
+     *
+     * Note: this cannot set the worker layout (`environments`/`supervisors`) —
+     * that is owned by the profile system; use supervisor()/routeJob() or
+     * useRawConfig() for that. It remains useful for other top-level Horizon
+     * keys (e.g. `waits`, `fast_termination`).
      *
      * @param string|array $config
      *

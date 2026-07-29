@@ -14,6 +14,7 @@
 namespace FoF\Horizon\Tests\integration;
 
 use Flarum\Testing\integration\TestCase;
+use FoF\GeoIP\Jobs\RetrieveIP;
 use FoF\Horizon\Extend\Horizon;
 use FoF\Horizon\Overrides\RedisQueue;
 use FoF\Redis\Extend\Redis;
@@ -299,6 +300,61 @@ class HorizonConfigurationTest extends TestCase
         );
 
         $this->assertSame(['exports', 'gdpr', 'migration-high'], $this->supervisor('long')['queue']);
+    }
+
+    #[Test]
+    public function queue_on_appends_to_an_active_default_profile()
+    {
+        // The base-image case: add a queue to the always-on `standard` profile
+        // (which the extender did NOT define — it comes from the defaults),
+        // without touching its worker count.
+        $this->extend((new Horizon())->queueOn('standard', 'myqueue'));
+
+        $standard = $this->supervisor('standard');
+
+        $this->assertSame(['default', 'myqueue'], $standard['queue']);
+        $this->assertSame(6, $standard['processes']); // unchanged
+        $this->assertContains('myqueue', $this->app()->getContainer()->make('flarum.queue.queues'));
+    }
+
+    #[Test]
+    public function route_job_with_a_supervisor_attaches_the_queue_and_routes_the_job()
+    {
+        // The one-call pattern: add a queue to a profile AND route a job class
+        // onto it. e.g. a translation extension putting its jobs on `standard`.
+        $this->extend(
+            (new Horizon())->routeJob(RetrieveIP::class, 'translate', 'standard')
+        );
+
+        $standard = $this->supervisor('standard');
+
+        // Queue attached to the named supervisor...
+        $this->assertContains('translate', $standard['queue']);
+        $this->assertContains('default', $standard['queue']);
+        // ...the job routed to it...
+        $this->assertSame('translate', RetrieveIP::$onQueue);
+        // ...and the queue registered for admin tooling.
+        $this->assertContains('translate', $this->app()->getContainer()->make('flarum.queue.queues'));
+    }
+
+    #[Test]
+    public function route_job_without_a_supervisor_sets_the_queue_but_attaches_to_no_profile()
+    {
+        // Two-arg routeJob only sets $onQueue + registers the queue; it does NOT
+        // put the queue on any supervisor (a worker won't consume it until a
+        // profile serves it). This documents the distinction.
+        $this->extend(
+            (new Horizon())->routeJob(RetrieveIP::class, 'translate')
+        );
+
+        // Boot first (routing is applied during the extender phase at boot),
+        // then assert.
+        $known = $this->app()->getContainer()->make('flarum.queue.queues');
+
+        $this->assertSame('translate', RetrieveIP::$onQueue);
+        $this->assertContains('translate', $known);
+        // standard is untouched — no supervisor serves `translate`.
+        $this->assertNotContains('translate', $this->supervisor('standard')['queue']);
     }
 
     #[Test]

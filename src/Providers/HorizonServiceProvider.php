@@ -306,6 +306,41 @@ class HorizonServiceProvider extends Provider
         Arr::set($config, 'path', trim($path, '/').'/horizon');
         Arr::set($config, 'use', 'horizon');
 
+        // A hand-written environments/supervisors array in config.php is not
+        // applied by the profile system and would be silently dropped by the
+        // exclusion below — fail loudly and point at the supported paths.
+        $configHorizon = $container->make('flarum.config')['horizon'] ?? [];
+        $offending = array_intersect(['environments', 'supervisors'], array_keys(is_array($configHorizon) ? $configHorizon : []));
+
+        // `supervisors` IS the supported config.php surface for profiles, so it
+        // is allowed; only a raw `environments` block is rejected here.
+        if (in_array('environments', $offending, true)) {
+            throw new \InvalidArgumentException(
+                "fof/horizon ignores a hand-written 'environments' array in config.php; the worker layout "
+                .'is managed by supervisor profiles. Configure profiles under the config.php '
+                ."'horizon.supervisors' key, or, to take full manual control, use the Horizon extender's "
+                .'useRawConfig() which bypasses the profile system.'
+            );
+        }
+
+        // Escape hatch: useRawConfig() takes full manual control. The supplied
+        // supervisor map is used verbatim as the current environment's layout;
+        // profile assembly and auto-routing are skipped entirely.
+        if ($container->bound('fof-horizon.raw_environments')) {
+            $supervisors = $container->make('fof-horizon.raw_environments');
+
+            Arr::set($config, 'environments', [$env => $supervisors]);
+
+            // Horizon merges its `defaults` template into every environment; a
+            // raw config takes responsibility for its own supervisors, so clear
+            // it to avoid resurrecting the vendored supervisor-1 (see below).
+            Arr::set($config, 'defaults', []);
+
+            $this->finaliseConfig($container, $config, $layered);
+
+            return;
+        }
+
         // Assemble supervisors from the profile set. A site's Horizon extender
         // registers the (defaults + overrides) profiles under this binding; if
         // no extender ran, fall back to the built-in defaults so a config- or
@@ -383,6 +418,18 @@ class HorizonServiceProvider extends Provider
         // not use Horizon's defaults mechanism — clear it.
         Arr::set($config, 'defaults', []);
 
+        $this->finaliseConfig($container, $config, $layered);
+    }
+
+    /**
+     * Apply the trim settings and persist the assembled horizon config, merging
+     * in any other top-level keys from config.php / local extenders without
+     * letting them clobber the sections we own.
+     *
+     * @param array<string, mixed> $config
+     */
+    protected function finaliseConfig(Container $container, array $config, LayeredConfig $layered): void
+    {
         Arr::set($config, 'trim', [
             'recent'        => $layered->integer('trim.recent', 60),
             'pending'       => $layered->integer('trim.pending', 60),
@@ -401,8 +448,8 @@ class HorizonServiceProvider extends Provider
         // Precedence: existing keys from local extenders, config.php and the default horizon.php.
         //
         // `environments`, `supervisors` and `trim` are assembled authoritatively
-        // above (from the profile resolver and LayeredConfig) and MUST NOT be
-        // reintroduced from either source here:
+        // above (from the profile resolver / useRawConfig / LayeredConfig) and
+        // MUST NOT be reintroduced from either source here:
         //   - `supervisors`/`trim` are consumed per-value, so a partial config.php
         //     override would otherwise clobber the assembled sections;
         //   - `environments` is the finished supervisor layout. array_merge is
