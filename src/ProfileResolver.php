@@ -48,9 +48,9 @@ class ProfileResolver
 
     /**
      * @param int|null $forcedProcesses a process count that overrides all
-     *                                   scaling layers (env/config/base×mult),
-     *                                   used for dedicated knobs such as email
-     *                                   concurrency. Null means resolve normally.
+     *                                  scaling layers (env/config/base×mult),
+     *                                  used for dedicated knobs such as email
+     *                                  concurrency. Null means resolve normally.
      *
      * @return array<string, mixed>|null the Horizon supervisor config, or null if scaled to zero
      */
@@ -72,7 +72,7 @@ class ProfileResolver
             throw new InvalidArgumentException(
                 "Supervisor '{$profile->name}' has {$processes} process(es) but no queues. "
                 ."Route at least one queue to it (e.g. via routeJob()/queueOn() or its 'queues' config) "
-                ."or leave it scaled to zero."
+                .'or leave it scaled to zero.'
             );
         }
 

@@ -58,7 +58,7 @@ class LayeredConfig
      *
      * @param string      $envKey    the full environment variable name
      * @param string|null $configKey dotted path under the `horizon` config key
-     *                                and `fof-horizon.` settings prefix
+     *                               and `fof-horizon.` settings prefix
      */
     public function raw(string $envKey, ?string $configKey = null): mixed
     {
