@@ -158,14 +158,26 @@ class StatsEndpointTest extends TestCase
     }
 
     #[Test]
-    public function queue_extremes_are_labeled_as_queue_names()
+    public function queue_extremes_use_the_stock_horizon_dashboard_keys()
     {
+        // The /horizon SPA is Horizon's own compiled dashboard, and its
+        // "Max Runtime" / "Max Throughput" tiles read these exact top-level
+        // keys. A previous payload nested them under `busiestQueues`, which
+        // nothing consumed — leaving both tiles permanently "-".
+        $metrics = $this->app()->getContainer()->make(\Laravel\Horizon\Contracts\MetricsRepository::class);
+
+        // realtime: two fast jobs (highest throughput); mail: one slow job
+        // (highest runtime). The tile keys are derived from the latest
+        // snapshot, so take one.
+        $metrics->incrementQueue('realtime', 5.0);
+        $metrics->incrementQueue('realtime', 5.0);
+        $metrics->incrementQueue('mail', 5000.0);
+        $metrics->snapshot();
+
         $stats = $this->stats();
 
-        // These are queue NAMES (possibly null when no metrics exist yet) —
-        // the old payload rendered them as if they were durations/rates.
-        $this->assertArrayHasKey('busiestQueues', $stats);
-        $this->assertArrayHasKey('slowestQueue', $stats['busiestQueues']);
-        $this->assertArrayHasKey('highestThroughputQueue', $stats['busiestQueues']);
+        $this->assertSame('realtime', $stats['queueWithMaxThroughput']);
+        $this->assertSame('mail', $stats['queueWithMaxRuntime']);
+        $this->assertArrayNotHasKey('busiestQueues', $stats);
     }
 }

@@ -123,7 +123,10 @@ export default class HorizonQueueWidget extends QueueWidget {
   }
 
   formatWait(maxWait: HorizonBlock['maxWait']): Mithril.Children {
-    if (!maxWait || maxWait.seconds <= 0) {
+    // Null means no queues are known at all (no supervisors running). A
+    // drained queue arrives as {queue, seconds: 0} and still names the queue —
+    // "0s on realtime" tells the operator which queue the figure refers to.
+    if (!maxWait) {
       return trans('horizon_max_wait_none');
     }
 

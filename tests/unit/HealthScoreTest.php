@@ -55,23 +55,26 @@ class HealthScoreTest extends TestCase
     #[Test]
     public function long_wait_costs_20_and_names_the_queue()
     {
-        $health = $this->score(maxWait: 6.2, queue: 'media');
+        // maxWait is in SECONDS (HorizonMetrics::maxWait passes Horizon's
+        // time-to-clear through unconverted); over five minutes is degraded.
+        $health = $this->score(maxWait: 372.0, queue: 'media');
 
         $this->assertSame(80, $health['score']);
         $this->assertSame('wait', $health['factors'][0]['key']);
         $this->assertStringContainsString('media', $health['factors'][0]['value']);
+        $this->assertStringContainsString('372s', $health['factors'][0]['value']);
     }
 
     #[Test]
     public function moderate_wait_costs_10()
     {
-        $this->assertSame(90, $this->score(maxWait: 2.0)['score']);
+        $this->assertSame(90, $this->score(maxWait: 120.0)['score']);
     }
 
     #[Test]
     public function short_wait_is_not_a_factor()
     {
-        $this->assertSame(100, $this->score(maxWait: 0.5)['score']);
+        $this->assertSame(100, $this->score(maxWait: 30.0)['score']);
     }
 
     #[Test]
@@ -90,7 +93,7 @@ class HealthScoreTest extends TestCase
     #[Test]
     public function worst_case_bottoms_out_at_zero_and_score_always_equals_100_plus_impacts()
     {
-        $health = $this->score(status: 'inactive', maxWait: 10.0, queue: 'default', memory: 95.0);
+        $health = $this->score(status: 'inactive', maxWait: 600.0, queue: 'default', memory: 95.0);
 
         $this->assertSame(0, $health['score']);
         $this->assertSame(100 + array_sum(array_column($health['factors'], 'impact')), $health['score']);
