@@ -67,7 +67,13 @@ return [
         ->command(Laravel\SnapshotCommand::class)
         ->command(Laravel\ClearMetricsCommand::class)
         ->schedule(Laravel\SnapshotCommand::class, function (Event $schedule) {
-            $schedule->everyMinute()->onOneServer()->withoutOverlapping();
+            // Stock Horizon snapshots every five minutes, and the metric
+            // trim settings (24 samples per queue/job) are sized for that
+            // cadence: 24 × 5min = 2h of dashboard history. Snapshotting
+            // every minute cut the visible history to 24 minutes and reset
+            // the throughput counters (which snapshots consume) 5× as often,
+            // making jobs-per-minute read 0 for most of each window.
+            $schedule->everyFiveMinutes()->onOneServer()->withoutOverlapping();
         }),
     // Routes
     (new Flarum\Routes('admin'))

@@ -57,8 +57,11 @@ class Stats implements RequestHandlerInterface
         }
 
         $wait = collect($this->waits->calculate());
-        $maxWait = $wait->max('minutes');
-        $maxWaitQueue = $wait->where('minutes', $maxWait)->first();
+        // {queue, seconds} of the slowest queue (null only when no queues are
+        // known). calculate() is a float map keyed "connection:queue" — a
+        // previous version called ->max('minutes')/->first()->name on it,
+        // which always produced null.
+        $maxWait = $this->horizonMetrics->maxWait();
         $status = $this->currentStatus();
 
         // Calculate memory percentage
@@ -91,16 +94,16 @@ class Stats implements RequestHandlerInterface
             ],
 
             'wait'          => $wait->take(1),
-            'maxWaitTime'   => $maxWait,
-            'maxWaitQueue'  => $maxWaitQueue ? $maxWaitQueue->name : null,
+            'maxWaitTime'   => $maxWait['seconds'] ?? null,
+            'maxWaitQueue'  => $maxWait['queue'] ?? null,
 
-            // Queue NAMES (or null when no metrics have been recorded yet).
-            'busiestQueues' => [
-                'slowestQueue'           => $this->metrics->queueWithMaximumRuntime(),
-                'highestThroughputQueue' => $this->metrics->queueWithMaximumThroughput(),
-            ],
+            // Queue NAMES (or null when no metrics have been recorded yet),
+            // under the exact keys the stock Horizon dashboard SPA reads for
+            // its "Max Runtime" and "Max Throughput" tiles — do not rename.
+            'queueWithMaxRuntime'    => $this->metrics->queueWithMaximumRuntime(),
+            'queueWithMaxThroughput' => $this->metrics->queueWithMaximumThroughput(),
 
-            'health'    => (new HealthScore())->calculate($status, $maxWait, $maxWaitQueue?->name, $memoryPercentage),
+            'health'    => (new HealthScore())->calculate($status, $maxWait !== null ? (float) $maxWait['seconds'] : null, $maxWait['queue'] ?? null, $memoryPercentage),
             'timestamp' => time(),
 
             'redis' => [

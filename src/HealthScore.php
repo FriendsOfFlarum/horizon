@@ -36,10 +36,12 @@ class HealthScore
             $factors[] = ['key' => 'status', 'impact' => -20, 'value' => 'paused'];
         }
 
-        if ($maxWait !== null && $maxWait > 5) {
-            $factors[] = ['key' => 'wait', 'impact' => -20, 'value' => round($maxWait).' min on '.($maxWaitQueue ?? 'unknown')];
-        } elseif ($maxWait !== null && $maxWait > 1) {
-            $factors[] = ['key' => 'wait', 'impact' => -10, 'value' => round($maxWait).' min on '.($maxWaitQueue ?? 'unknown')];
+        // $maxWait is in SECONDS (see HorizonMetrics::maxWait). Over five
+        // minutes of backlog is degraded; over one minute is worth noting.
+        if ($maxWait !== null && $maxWait > 300) {
+            $factors[] = ['key' => 'wait', 'impact' => -20, 'value' => round($maxWait).'s on '.($maxWaitQueue ?? 'unknown')];
+        } elseif ($maxWait !== null && $maxWait > 60) {
+            $factors[] = ['key' => 'wait', 'impact' => -10, 'value' => round($maxWait).'s on '.($maxWaitQueue ?? 'unknown')];
         }
 
         if ($memoryPercentage !== null && $memoryPercentage > 90) {

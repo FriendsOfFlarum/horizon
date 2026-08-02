@@ -66,29 +66,36 @@ class HorizonMetricsTest extends TestCase
     }
 
     #[Test]
-    public function max_wait_is_null_when_all_waits_are_zero()
+    public function max_wait_names_the_top_queue_even_when_nothing_is_waiting()
     {
+        // A drained queue is the normal healthy state; the operator should
+        // still see WHICH queue tops the wait table, not a bare "None".
         $waits = Mockery::mock(WaitTimeCalculator::class);
         $waits->shouldReceive('calculate')->andReturn(['redis:default' => 0.0]);
 
-        $this->assertNull($this->metrics(['waits' => $waits])->maxWait());
+        $result = $this->metrics(['waits' => $waits])->maxWait();
+
+        $this->assertSame('default', $result['queue']);
+        $this->assertSame(0, $result['seconds']);
     }
 
     #[Test]
     public function max_wait_returns_the_slowest_queue_name_and_seconds()
     {
-        // calculate() is keyed "connection:queue" and valued in MINUTES.
+        // calculate() is keyed "connection:queue" and valued in SECONDS —
+        // Horizon's per-queue time-to-clear is measured in milliseconds and
+        // divided by 1000 before it is returned. No unit conversion here.
         $waits = Mockery::mock(WaitTimeCalculator::class);
         $waits->shouldReceive('calculate')->andReturn([
-            'redis:default' => 0.5,
-            'redis:emails'  => 2.0, // slowest
-            'redis:low'     => 1.0,
+            'redis:default' => 30.0,
+            'redis:emails'  => 120.0, // slowest
+            'redis:low'     => 60.0,
         ]);
 
         $result = $this->metrics(['waits' => $waits])->maxWait();
 
         $this->assertSame('emails', $result['queue'], 'the connection prefix must be stripped');
-        $this->assertSame(120, $result['seconds'], '2.0 minutes must convert to 120 seconds');
+        $this->assertSame(120, $result['seconds'], 'seconds must pass through without a spurious ×60');
     }
 
     #[Test]

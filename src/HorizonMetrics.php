@@ -80,25 +80,28 @@ class HorizonMetrics
      */
     public function maxWait(): ?array
     {
+        // calculate() is keyed by "connection:queue" and valued in SECONDS:
+        // Horizon computes each queue's time-to-clear in milliseconds and
+        // divides by 1000 before returning. No unit conversion belongs here —
+        // a previous version treated the values as minutes and overstated
+        // every wait by a factor of 60.
         $waits = collect($this->waits->calculate());
 
         if ($waits->isEmpty()) {
             return null;
         }
 
-        $maxMinutes = (float) $waits->max();
-
-        if ($maxMinutes <= 0) {
-            return null;
-        }
-
-        // calculate() is keyed by "connection:queue"; surface the queue name.
-        $key = (string) $waits->search($maxMinutes);
+        // A drained queue (0s) is the normal healthy state — still name the
+        // top queue rather than reporting nothing, so the operator can see
+        // which queue the figure refers to. Null is reserved for "no queues
+        // known at all" (no supervisors running).
+        $max = (float) $waits->max();
+        $key = (string) $waits->search($max);
         $queue = str_contains($key, ':') ? substr($key, strpos($key, ':') + 1) : $key;
 
         return [
             'queue'   => $queue,
-            'seconds' => (int) round($maxMinutes * 60),
+            'seconds' => (int) round($max),
         ];
     }
 
