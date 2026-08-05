@@ -30,7 +30,7 @@ use Illuminate\Contracts\Container\Container;
  *   // Route a job onto a tier. Appends the job's queue to that supervisor and
  *   // registers it so admin tooling (dashboard, per-queue pause) covers it.
  *   (new Horizon)
- *       ->routeJob(RealtimeJob::class, 'fast')
+ *       ->routeJob(ThumbnailJob::class, 'fast')
  *       ->routeJob(ExportJob::class, 'long');
  *
  *   // Add extra queues under an existing supervisor without touching its
@@ -297,7 +297,7 @@ class Horizon implements ExtenderInterface
     }
 
     /**
-     * Opt out of the built-in standard/fast/long/emails profiles, starting from
+     * Opt out of the built-in standard/fast/realtime/long/emails profiles, starting from
      * a blank supervisor set (only what this extender defines will exist).
      */
     public function withoutDefaultProfiles(): self

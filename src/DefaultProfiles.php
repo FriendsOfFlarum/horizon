@@ -25,7 +25,14 @@ namespace FoF\Horizon;
  *  - fast      Jobs that (a) run quickly and (b) would cause problems if left
  *              in a long-running lane — they back up and starve other work. The
  *              short timeout is the protection: a "fast" job that hangs is
- *              killed early rather than clogging the lane.
+ *              killed early rather than clogging the lane. Nothing built in
+ *              routes here — it is an offer for extensions and operators — and
+ *              it does not retry, so work that must not be lost wants a
+ *              different tier.
+ *  - realtime  Websocket pushes. Same short budget as `fast`, but retries:
+ *              these reach our own websocket server, which restarts on
+ *              deployment, so a push can fail in transit through no fault of
+ *              its own.
  *  - long      Heavy lifting — slow, resource-hungry jobs (exports, GDPR,
  *              migrations). Long timeout, few fat workers, gentle priority.
  *  - emails    Outbound mail; capped by the mail provider's connection budget
@@ -67,11 +74,46 @@ class DefaultProfiles
                 name: 'fast',
                 queues: [],
                 // Dormant until a site routes queues here and gives it workers.
+                // Nothing built in does: this tier is an offer, not a
+                // destination. Note what accepting it means — one attempt and a
+                // three second budget — so work that must not be lost belongs
+                // elsewhere, and work that hangs is killed rather than allowed
+                // to clog the lane.
                 processesBase: 0,
                 processesMultiplier: 12,
                 memoryBase: 128,
                 memoryMultiplier: 1,
                 tries: 1,
+                timeout: 3,
+                balance: 'auto',
+                overrides: [
+                    'nice'            => 0,
+                    'balanceMaxShift' => 5,
+                    'balanceCooldown' => 3,
+                ],
+            ),
+            'realtime' => new Supervisor(
+                name: 'realtime',
+                queues: [],
+                // Dormant until flarum/realtime is enabled (see BuiltInRouting).
+                processesBase: 0,
+                processesMultiplier: 12,
+                memoryBase: 128,
+                memoryMultiplier: 1,
+                // Unlike the other short-lived tiers this one retries. Pushes go
+                // to our own websocket server, which restarts on every
+                // deployment — and a deployment is exactly when the
+                // asset-revision broadcast fires, so a push meets a socket that
+                // is going away and dies in transit. One requeue crosses that
+                // window; more would be pointless, since an undelivered
+                // revision reaches clients from the next response's
+                // X-Flarum-Assets-Revision header anyway.
+                tries: 2,
+                // Measured on discuss.flarum.org: the whole broadcast — public
+                // trigger, channel listing, and the per-user fan-out — runs in
+                // about 12ms. Three seconds is not a budget these jobs approach;
+                // it is there so a push that hangs sheds instead of holding a
+                // worker, and a push worth waiting seconds for is already stale.
                 timeout: 3,
                 balance: 'auto',
                 overrides: [
