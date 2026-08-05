@@ -21,14 +21,14 @@ use Illuminate\Queue\QueueRoutes;
  * site gets a sensible split with zero configuration:
  *
  *  - core mail jobs        → `mail`     queue, served by the always-on `emails` profile
- *  - flarum/realtime jobs  → `realtime` queue, served by the `fast` profile (when enabled)
+ *  - flarum/realtime jobs  → `realtime` queue, served by the `realtime` profile (when enabled)
  *  - flarum/gdpr jobs      → `gdpr`     queue, served by the `long` profile (when enabled)
  *  - fof/geoip lookups     → `iplookup` queue on the always-on `standard` profile (when enabled)
  *
  * Routing a class means two things: registering it in core's queue-route map
  * (so dispatched jobs land on the right queue) and ensuring the serving profile
  * lists that queue and has workers. For the extension-conditional profiles
- * (`fast`, `long`) that also means bringing them online — they default to zero
+ * (`realtime`, `long`) that also means bringing them online — they default to zero
  * processes, so without this they would stay dormant.
  *
  * Routing is registered against each extension's abstract base job class; core's
@@ -70,10 +70,14 @@ class BuiltInRouting
         // ships active, so we only need to route the jobs.
         $this->route(self::MAIL_JOBS, 'mail');
 
-        // flarum/realtime → fast/realtime, only when the extension is enabled.
+        // flarum/realtime → realtime/realtime, only when the extension is
+        // enabled. Its own tier rather than the shared `fast` lane: these pushes
+        // want a retry, because they cross a websocket server that restarts on
+        // deployment, and giving `fast` one would hand it to every unrelated job
+        // routed there.
         if ($this->extensions->isEnabled('flarum-realtime')) {
             $this->route([\Flarum\Realtime\Push\Jobs\Job::class], 'realtime');
-            $profiles = $this->activate($profiles, 'fast', 'realtime');
+            $profiles = $this->activate($profiles, 'realtime', 'realtime');
         }
 
         // flarum/gdpr → long/gdpr, only when the extension is enabled.

@@ -133,7 +133,8 @@ each tuned for a class of job. Four profiles ship out of the box:
 |---|---|---|---|
 | `standard` | 60s | Regular queue jobs — ordinary background work | **active** (base 1 × 6 processes) |
 | `emails` | 120s | Outbound mail; retries transient failures (`tries: 3`) | **active**, serves the `mail` queue |
-| `fast` | 3s | Quick jobs that mustn't back up — the short timeout kills a hung one early rather than clogging the lane | active **when `flarum/realtime` is enabled** |
+| `fast` | 3s | Quick jobs that mustn't back up — the short timeout kills a hung one early rather than clogging the lane. Does not retry, so don't put work here that mustn't be lost | dormant — nothing built in routes here; an offer for extensions and operators |
+| `realtime` | 3s | Websocket pushes. Same short budget as `fast`, but retries (`tries: 2`): these cross our own websocket server, which restarts on deployment | active **when `flarum/realtime` is enabled** |
 | `long` | 3600s | Heavy lifting — slow, resource-hungry jobs; 4× memory | active **when `flarum/gdpr` is enabled** |
 
 **Sensible defaults, no configuration.** Horizon wires Flarum's own queued work
@@ -145,8 +146,10 @@ onto these profiles automatically:
   onto it out of the box. It's capped by your mail provider's connection budget
   rather than host CPU, so it uses a small fixed process count and retries
   (mail failures are often transient).
-- **`fast`** comes online automatically when **`flarum/realtime`** is enabled,
+- **`realtime`** comes online automatically when **`flarum/realtime`** is enabled,
   serving a `realtime` queue that realtime's push jobs are routed onto.
+- **`fast`** is defined but dormant. Nothing built in routes onto it; it is there
+  for extensions and operators that want a shed-fast lane.
 - **`long`** comes online automatically when **`flarum/gdpr`** is enabled,
   serving a `gdpr` queue that GDPR's export/erasure jobs are routed onto.
 - **`fof/geoip`**, when enabled, gets an `iplookup` queue — but this one rides
@@ -180,7 +183,7 @@ the built-in defaults:
 |---|---|---|---|
 | `standard` (always) | 6 | 128 MB | 768 MB |
 | `emails` (always) | 1 | 128 MB | 128 MB |
-| `fast` (if realtime enabled) | 12 | 128 MB | 1536 MB |
+| `realtime` (if realtime enabled) | 12 | 128 MB | 1536 MB |
 | `long` (if gdpr enabled) | 1 | 512 MB | 512 MB |
 
 So a **fresh install** wants on the order of **~1 GB** of RAM for the queue
@@ -289,9 +292,8 @@ key. Scaling values here are overridden by the matching env var.
 ```php
 'horizon' => [
     'supervisors' => [
-        // Bring `fast` online and point it at your realtime queue.
-        'fast' => [
-            'queues'    => ['realtime'],
+        // Give the realtime tier more workers than the default.
+        'realtime' => [
             'processes' => 3,
         ],
         // A heavy tier for bulk work.
@@ -339,7 +341,7 @@ return [
         // Override a profile's knobs. Recognised keys map onto the profile;
         // anything else (nice, balanceMaxShift, retry_after, …) passes straight
         // through to Horizon.
-        ->supervisor('fast', ['queues' => ['realtime'], 'processes' => 12])
+        ->supervisor('realtime', ['processes' => 12])
 
         // Define a brand-new profile.
         ->supervisor('media', ['queues' => ['thumbnails'], 'timeout' => 300, 'processes' => 2]),

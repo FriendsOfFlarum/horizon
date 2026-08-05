@@ -354,7 +354,7 @@ class HorizonServiceProvider extends Provider
 
         // Wire Flarum's own queued work onto the built-in profiles: core mail
         // jobs onto the always-on `emails` profile, and — when their extensions
-        // are enabled — realtime jobs onto `fast` and gdpr jobs onto `long`
+        // are enabled — realtime jobs onto `realtime` and gdpr jobs onto `long`
         // (bringing those tiers online). Runs before the config.php/env layers
         // below so an operator can still tune or override the result.
         $routing = new BuiltInRouting(

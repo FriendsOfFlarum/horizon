@@ -92,23 +92,58 @@ class BuiltInRoutingTest extends TestCase
     {
         $this->app();
 
-        // fast has no queues / no supervisor until realtime is enabled.
-        $this->assertSame([], $this->supervisor('fast'));
+        // The realtime tier has no queues / no supervisor until realtime is enabled.
+        $this->assertSame([], $this->supervisor('realtime'));
         $this->assertNotContains('realtime', $this->knownQueues());
     }
 
     #[Test]
-    public function enabling_realtime_brings_fast_online_and_routes_realtime_jobs()
+    public function enabling_realtime_brings_its_own_tier_online_and_routes_realtime_jobs()
     {
         $this->extension('flarum-realtime');
         $this->app();
 
-        $fast = $this->supervisor('fast');
+        $realtime = $this->supervisor('realtime');
 
-        $this->assertNotEmpty($fast, 'fast must register once realtime is enabled');
-        $this->assertContains('realtime', $fast['queue']);
+        $this->assertNotEmpty($realtime, 'the realtime tier must register once realtime is enabled');
+        $this->assertContains('realtime', $realtime['queue']);
         $this->assertSame('realtime', $this->routeFor(RealtimeJob::class));
         $this->assertContains('realtime', $this->knownQueues());
+    }
+
+    /**
+     * Realtime pushes reach our own websocket server, which restarts on every
+     * deployment — and a deployment is when the asset-revision broadcast fires.
+     * A push caught in that window fails in transit, so the tier serving it
+     * retries where the other short-lived tiers do not.
+     */
+    #[Test]
+    public function the_realtime_tier_retries_a_push_that_failed_in_transit()
+    {
+        $this->extension('flarum-realtime');
+        $this->app();
+
+        $realtime = $this->supervisor('realtime');
+
+        $this->assertSame(2, (int) $realtime['tries'], 'realtime pushes must survive a websocket restart.');
+
+        // The short timeout is deliberate and stays: the whole broadcast measures
+        // in milliseconds, and a push worth waiting seconds for is already stale.
+        $this->assertSame(3, (int) $realtime['timeout']);
+    }
+
+    /**
+     * `fast` is now an offer rather than a destination: nothing built in routes
+     * onto it, so it stays scaled to zero unless an extension or operator puts
+     * work there. Enabling realtime must no longer wake it.
+     */
+    #[Test]
+    public function fast_stays_dormant_now_that_realtime_has_its_own_tier()
+    {
+        $this->extension('flarum-realtime');
+        $this->app();
+
+        $this->assertSame([], $this->supervisor('fast'), 'fast must not come online just because realtime is enabled.');
     }
 
     #[Test]

@@ -15,7 +15,7 @@ namespace FoF\Horizon;
 
 /**
  * A single supervisor profile: the baked-in defaults for one tier (standard,
- * fast, long, emails, or a site-defined one), plus whatever extra Horizon keys
+ * fast, realtime, long, emails, or a site-defined one), plus whatever extra Horizon keys
  * a site chose to pass through.
  *
  * Scaling is expressed as a base × multiplier for both process count and
