@@ -8,4 +8,12 @@ parameters:
     - src
   excludePaths:
     - *.blade.php
+    # Larastan's ViewStringType::accepts() resolves constant view names at
+    # analysis time by calling Laravel's global view() helper, which ships in
+    # laravel/framework's Foundation/helpers.php. Flarum installs discrete
+    # illuminate/* components, so that helper does not exist and analysing the
+    # 'horizon::layout' string in Home.php aborts the whole run with
+    # "Internal error: Call to undefined function view()".
+    # Drop this exclusion once Larastan guards that call.
+    - src/Http/Home.php
   databaseMigrationsPath: ['migrations']
