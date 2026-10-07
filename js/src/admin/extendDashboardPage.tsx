@@ -17,8 +17,5 @@ export default function extendDashboardPage() {
       // Defensive: if core didn't register it (e.g. an older core), add ours.
       widgets.add('queue', <HorizonQueueWidget />, 15);
     }
-
-    // The Redis server card now ships with fof/redis, which registers it on
-    // the dashboard itself — horizon no longer duplicates it here.
   });
 }
