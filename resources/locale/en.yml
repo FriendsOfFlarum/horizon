@@ -47,13 +47,11 @@ fof-horizon:
         extension's README. Restart Horizon after changing worker configuration.
       memory_limit: Master Process Memory Limit (MB)
       memory_limit_help: |
-        Memory limit for the Horizon master supervisor process. Horizon raises
-        this automatically to the largest worker budget, so you rarely need to
-        set it by hand.
+        Memory limit for the Horizon master supervisor process: past it, the
+        master restarts itself. Each worker's memory is set by its supervisor.
 
     stats:
       queue_heading: Queue
-      kv_heading: Key-Value Store
       full_dashboard: Horizon Dashboard
       auto_refresh: Auto Refresh
       refresh: Refresh
@@ -61,17 +59,6 @@ fof-horizon:
         title: Connection Error
         fetch_failed: Unable to fetch Horizon statistics. Please check your Redis configuration.
         setup_docs: View Redis Setup Documentation
-      eviction_pressure: memory pressure
-      eviction_policy_tooltip: >-
-        The eviction policy is how the store selects what to remove when the
-        maxmemory limit is reached. The default is `noeviction`: new values
-        aren't saved when the memory limit is reached. Click to view
-        documentation.
-      eviction_warning: >-
-        Memory usage is at {usage}% of maxmemory and the eviction policy is
-        "{policy}", so keys — potentially including queue data — may be
-        evicted soon. Increase maxmemory or move the queue to a dedicated
-        database with more headroom.
       health:
         excellent: Excellent
         good: Good
@@ -102,13 +89,6 @@ fof-horizon:
         max-wait: Max Wait
         slowest-queue: Slowest Queue
         highest-throughput-queue: Busiest Queue
-        memory-used: Memory Used
-        memory-peak: Memory Peak
-        memory-max: Max Memory
-        ops-per-sec: Ops Per Second
-        connected-clients: Connected Clients
-        blocked-clients: Blocked Clients
-        eviction-policy: Eviction Policy
       # Tile labels for the Horizon-enriched core queue widget (the admin
       # dashboard card that extends core's QueueWidget).
       tile:

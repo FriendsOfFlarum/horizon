@@ -88,6 +88,14 @@ class ProfileResolver
             'memory'     => $memory,
         ]);
 
+        // Laravel's worker arms its timeout alarm even when it found no job,
+        // then sleeps before looking again (Horizon's default is 3s). A sleep
+        // that reaches the timeout gets an idle worker killed by its own alarm
+        // and booted again, endlessly. Whole seconds: PHP's sleep() takes an int.
+        if ($profile->timeout > 0 && ($supervisor['sleep'] ?? 3) >= $profile->timeout) {
+            $supervisor['sleep'] = $profile->timeout > 1 ? 1 : 0.5;
+        }
+
         return $supervisor;
     }
 

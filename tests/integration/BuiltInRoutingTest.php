@@ -130,6 +130,9 @@ class BuiltInRoutingTest extends TestCase
         // The short timeout is deliberate and stays: the whole broadcast measures
         // in milliseconds, and a push worth waiting seconds for is already stale.
         $this->assertSame(3, (int) $realtime['timeout']);
+
+        // And its idle workers must not be killed by that timeout's alarm.
+        $this->assertLessThan($realtime['timeout'], $realtime['sleep'] ?? 3);
     }
 
     /**

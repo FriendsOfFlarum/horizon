@@ -155,4 +155,48 @@ class ProfileResolverTest extends TestCase
 
         $this->resolver(['REDIS_HORIZON_STANDARD_MEMORY_LIMIT' => '-8'])->resolve($profile);
     }
+
+    private function tier(int $timeout, array $overrides = []): Supervisor
+    {
+        return new Supervisor(name: 'quick', queues: ['quick'], processesBase: 1, timeout: $timeout, overrides: $overrides);
+    }
+
+    /**
+     * Laravel's worker arms its timeout alarm even when it found no job, then
+     * sleeps before looking again. A sleep as long as the timeout means an idle
+     * worker is killed by its own alarm, and Horizon boots another, endlessly:
+     * on discuss.flarum.org, idle realtime workers (3s timeout against
+     * Horizon's default 3s sleep) lived two or three seconds each.
+     */
+    #[Test]
+    public function an_idle_worker_sleeps_less_than_its_timeout()
+    {
+        $this->assertSame(1, $this->resolver()->resolve($this->tier(3))['sleep']);
+    }
+
+    #[Test]
+    public function a_configured_sleep_at_or_over_the_timeout_is_brought_under_it()
+    {
+        $this->assertSame(1, $this->resolver()->resolve($this->tier(5, ['sleep' => 10]))['sleep']);
+        $this->assertSame(1, $this->resolver()->resolve($this->tier(5, ['sleep' => 5]))['sleep']);
+    }
+
+    #[Test]
+    public function under_a_one_second_timeout_it_sleeps_half_a_second()
+    {
+        $this->assertSame(0.5, $this->resolver()->resolve($this->tier(1))['sleep']);
+    }
+
+    #[Test]
+    public function a_sleep_already_under_the_timeout_is_left_alone()
+    {
+        $this->assertArrayNotHasKey('sleep', $this->resolver()->resolve($this->tier(60)));
+        $this->assertSame(2, $this->resolver()->resolve($this->tier(5, ['sleep' => 2]))['sleep']);
+    }
+
+    #[Test]
+    public function without_a_timeout_there_is_no_alarm_to_avoid()
+    {
+        $this->assertArrayNotHasKey('sleep', $this->resolver()->resolve($this->tier(0)));
+    }
 }

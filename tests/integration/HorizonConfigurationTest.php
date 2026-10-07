@@ -388,14 +388,17 @@ class HorizonConfigurationTest extends TestCase
     }
 
     #[Test]
-    public function memory_limit_is_raised_to_the_largest_supervisor_budget()
+    public function the_master_memory_limit_is_not_raised_to_a_worker_budget()
     {
-        // Bring long online with a 512MB budget (base 128 × multiplier 4).
+        // `memory_limit` is the master supervisor's own restart threshold (MB),
+        // not the workers' PHP limit: they raise that themselves (see
+        // Console\WorkCommand). With long online at a 512MB budget (base 128 ×
+        // multiplier 4), the master keeps its default.
         $this->config('horizon', [
             'supervisors' => ['long' => ['processes' => 1, 'queues' => ['exports']]],
         ]);
 
-        $this->assertSame(512, (int) $this->horizonConfig()['memory_limit']);
+        $this->assertSame(128, (int) $this->horizonConfig()['memory_limit']);
     }
 
     #[Test]
