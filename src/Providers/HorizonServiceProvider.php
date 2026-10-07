@@ -383,7 +383,6 @@ class HorizonServiceProvider extends Provider
         $emailConcurrency = $this->resolveEmailConcurrency($container);
 
         $supervisors = [];
-        $maxMemory = 0;
 
         foreach ($profiles as $name => $profile) {
             if (!empty($configSupervisors[$name]) && is_array($configSupervisors[$name])) {
@@ -400,16 +399,12 @@ class HorizonServiceProvider extends Provider
             }
 
             $supervisors['supervisor-'.$name] = $resolved;
-            $maxMemory = max($maxMemory, (int) $resolved['memory']);
         }
 
-        // A worker forked with a memory budget larger than the CLI
-        // memory_limit hits PHP's fatal "Allowed memory size exhausted" before
-        // Horizon's graceful memory check can restart it. Raise the worker
-        // memory_limit to the largest supervisor budget so no site trips that
-        // silent OOM. An explicit REDIS_HORIZON_MEMORY_LIMIT still wins.
-        $memoryLimit = max($layered->integer('memory_limit', 128), $maxMemory);
-        Arr::set($config, 'memory_limit', $memoryLimit);
+        // The master supervisor's own restart threshold (MB). It has no say
+        // over the workers' PHP memory_limit: each worker raises that above its
+        // own budget (Console\WorkCommand).
+        Arr::set($config, 'memory_limit', $layered->integer('memory_limit', 128));
 
         Arr::set($config, 'environments', [
             $env => $supervisors,

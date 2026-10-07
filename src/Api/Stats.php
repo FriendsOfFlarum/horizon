@@ -15,11 +15,9 @@ namespace FoF\Horizon\Api;
 
 use FoF\Horizon\HealthScore;
 use FoF\Horizon\HorizonMetrics;
-use FoF\Horizon\Traits\RetrievesRedisInfo;
 use FoF\Redis\Overrides\RedisManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Arr;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laravel\Horizon\Contracts\JobRepository;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
@@ -29,11 +27,10 @@ use Laravel\Horizon\WaitTimeCalculator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Throwable;
 
 class Stats implements RequestHandlerInterface
 {
-    use RetrievesRedisInfo;
-
     public function __construct(
         public Repository $config,
         public RedisManager $redis,
@@ -48,14 +45,6 @@ class Stats implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $info = $this->getInfo();
-
-        if (Arr::has($info, 'error')) {
-            return new JsonResponse([
-                'error' => Arr::get($info, 'error'),
-            ], 500);
-        }
-
         $wait = collect($this->waits->calculate());
         // {queue, seconds} of the slowest queue (null only when no queues are
         // known). calculate() is a float map keyed "connection:queue" — a
@@ -63,17 +52,6 @@ class Stats implements RequestHandlerInterface
         // which always produced null.
         $maxWait = $this->horizonMetrics->maxWait();
         $status = $this->currentStatus();
-
-        // Calculate memory percentage
-        $memoryUsedBytes = Arr::get($info, 'Memory.used_memory', 0);
-        $memoryMaxBytes = Arr::get($info, 'Memory.maxmemory', 0);
-        $memoryPercentage = null;
-
-        if ($memoryMaxBytes > 0) {
-            $memoryPercentage = round(($memoryUsedBytes / $memoryMaxBytes) * 100, 2);
-        }
-
-        $evictionPolicy = Arr::get($info, 'Memory.maxmemory_policy', '');
 
         return new JsonResponse([
             'status'        => $status,
@@ -103,21 +81,9 @@ class Stats implements RequestHandlerInterface
             'queueWithMaxRuntime'    => $this->metrics->queueWithMaximumRuntime(),
             'queueWithMaxThroughput' => $this->metrics->queueWithMaximumThroughput(),
 
-            'health'    => (new HealthScore())->calculate($status, $maxWait !== null ? (float) $maxWait['seconds'] : null, $maxWait['queue'] ?? null, $memoryPercentage),
+            'health'    => (new HealthScore())->calculate($status, $maxWait !== null ? (float) $maxWait['seconds'] : null, $maxWait['queue'] ?? null, $this->memoryPercentage()),
             'timestamp' => time(),
 
-            'redis' => [
-                'memory_used'       => Arr::get($info, 'Memory.used_memory_human', '0'),
-                'memory_used_bytes' => $memoryUsedBytes,
-                'memory_peak'       => Arr::get($info, 'Memory.used_memory_peak_human', '0'),
-                'memory_max'        => $this->formatMaxMemory(Arr::get($info, 'Memory.maxmemory_human', '0')),
-                'memory_max_bytes'  => $memoryMaxBytes,
-                'memory_percentage' => $memoryPercentage,
-                'eviction_policy'   => $evictionPolicy,
-                'ops_per_sec'       => Arr::get($info, 'Stats.instantaneous_ops_per_sec', 0),
-                'connected_clients' => Arr::get($info, 'Clients.connected_clients', 0),
-                'blocked_clients'   => Arr::get($info, 'Clients.blocked_clients', 0),
-            ],
         ]);
     }
 
@@ -202,12 +168,24 @@ class Stats implements RequestHandlerInterface
         })->count();
     }
 
-    private function formatMaxMemory(string $maxMemory): string
+    /**
+     * Memory used on the Redis server Horizon runs on, as a percentage of its
+     * `maxmemory`. Null when there's no limit, or no reading: memory is one
+     * health factor, not a reason to fail the dashboard. The dashboard polls
+     * this endpoint, so it asks for the memory section alone.
+     */
+    protected function memoryPercentage(): ?float
     {
-        if ($maxMemory === '0' || $maxMemory === '0B') {
-            return 'auto';
+        try {
+            $info = $this->redis->connection('horizon')->command('info', ['memory']);
+        } catch (Throwable) {
+            return null;
         }
 
-        return $maxMemory;
+        // Predis nests the section under its name; phpredis returns it flat.
+        $memory = is_array($info['Memory'] ?? null) ? $info['Memory'] : $info;
+        $max = (int) ($memory['maxmemory'] ?? 0);
+
+        return $max > 0 ? round((int) ($memory['used_memory'] ?? 0) / $max * 100, 2) : null;
     }
 }

@@ -141,20 +141,11 @@ class StatsEndpointTest extends TestCase
     }
 
     #[Test]
-    public function redis_info_is_namespaced_and_reports_the_eviction_policy()
+    public function the_redis_server_card_has_moved_to_fof_redis()
     {
-        $stats = $this->stats();
-
-        $redis = $stats['redis'];
-
-        $this->assertArrayHasKey('memory_used', $redis);
-        $this->assertArrayHasKey('memory_percentage', $redis);
-        $this->assertArrayHasKey('ops_per_sec', $redis);
-
-        // The policy is informational: eviction policies like allkeys-lru
-        // are perfectly reasonable for a Flarum cache store. The UI only
-        // warns when the policy can evict AND memory pressure is real.
-        $this->assertNotSame('', $redis['eviction_policy']);
+        // The dashboard's Redis card, and the server stats it read from here,
+        // now come from fof/redis's own endpoint.
+        $this->assertArrayNotHasKey('redis', $this->stats());
     }
 
     #[Test]

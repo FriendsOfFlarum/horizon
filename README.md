@@ -137,6 +137,12 @@ each tuned for a class of job. Four profiles ship out of the box:
 | `realtime` | 3s | Websocket pushes. Same short budget as `fast`, but retries (`tries: 2`): these cross our own websocket server, which restarts on deployment | active **when `flarum/realtime` is enabled** |
 | `long` | 3600s | Heavy lifting — slow, resource-hungry jobs; 4× memory | active **when `flarum/gdpr` is enabled** |
 
+An idle worker sleeps before checking its queue again, and that sleep is always
+kept shorter than the timeout: the timeout's alarm is set even while the worker
+waits, so an equal or longer sleep would see idle workers killed and restarted
+over and over. Short-timeout tiers like `fast` and `realtime` sleep for one
+second, where Horizon's default is three.
+
 **Sensible defaults, no configuration.** Horizon wires Flarum's own queued work
 onto these profiles automatically:
 
@@ -190,10 +196,10 @@ So a **fresh install** wants on the order of **~1 GB** of RAM for the queue
 alone (≈900 MB of workers plus headroom); with realtime and gdpr enabled and at
 default scaling that climbs toward **~3 GB**. These are ceilings — the
 `auto`/`simple` balancers only run as many workers as there is work for — but
-provision for the ceiling so a burst doesn't get OOM-killed. Because `long`
-workers each get a 512 MB budget, Horizon automatically raises the worker
-`memory_limit` to the largest supervisor budget (see
-[Automatic worker memory limit](#automatic-worker-memory-limit)).
+provision for the ceiling so a burst doesn't get OOM-killed. Each worker also
+raises its PHP `memory_limit` to twice its budget, so a single job can briefly
+use more than the figures above (see
+[Worker PHP memory limit](#worker-php-memory-limit)).
 
 **CPU:** each busy worker saturates roughly one core, so the total worker count
 across active profiles is a good guide to how many cores you want available.
@@ -269,7 +275,7 @@ outright; otherwise the base is multiplied by the multiplier:
 
 | Setting | config.php (`horizon.` key) | Environment variable | Default |
 |---|---|---|---|
-| Master memory limit (MB) | `memory_limit` | `REDIS_HORIZON_MEMORY_LIMIT` | 128 (auto-raised, see below) |
+| Master memory limit (MB) | `memory_limit` | `REDIS_HORIZON_MEMORY_LIMIT` | 128 |
 | Trim settings (minutes) | `trim.*` | `REDIS_HORIZON_TRIM_*` | 60 / 10080 |
 
 > **Note:** `REDIS_*` (without `HORIZON_`) belongs to
@@ -400,13 +406,17 @@ routing.
 > because the profile system owns that. Use profiles or `useRawConfig()`
 > instead. See [Breaking changes](#breaking-changes-supervisor-profiles).
 
-#### Automatic worker memory limit
+#### Worker PHP memory limit
 
-Horizon raises the forked worker's PHP `memory_limit` to the largest supervisor
-`memory` budget automatically. Without this, a worker whose supervisor budget
-exceeds the CLI `memory_limit` hits PHP's fatal "Allowed memory size exhausted"
-*before* Horizon's graceful memory check can restart it. An explicit
-`REDIS_HORIZON_MEMORY_LIMIT` still wins if you set it higher.
+Each worker raises its own PHP `memory_limit` to twice its supervisor's
+`memory` budget when it starts. Horizon only recycles a worker that is over
+budget once a job has finished. A job that reaches PHP's limit first is killed
+with a fatal "Allowed memory size exhausted" error, which is easy to hit under a
+distribution's default CLI limit (Debian's is 96M).
+
+The limit is never lowered: if PHP already allows more, or has no limit (`-1`),
+it stays as it is. `memory_limit` in Horizon's own configuration is unrelated:
+it's the master supervisor's restart threshold.
 
 #### Failing fast on misconfiguration
 
@@ -700,9 +710,9 @@ on the relevant profile:
 ],
 ```
 
-Note that Horizon already raises the master `memory_limit` to the largest
-per-worker budget automatically, so you rarely need to set it by hand — see
-[Automatic worker memory limit](#automatic-worker-memory-limit).
+Each worker raises its own PHP `memory_limit` to twice its `memory` budget, so
+raising `memory` is enough for the workers — see
+[Worker PHP memory limit](#worker-php-memory-limit).
 
 You can also limit how long a worker runs before being recycled by passing the
 standard Horizon keys through a profile:

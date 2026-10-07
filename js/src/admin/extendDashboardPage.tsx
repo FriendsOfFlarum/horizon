@@ -4,7 +4,6 @@ import type Mithril from 'mithril';
 import DashboardPage from 'flarum/admin/components/DashboardPage';
 import ItemList from 'flarum/common/utils/ItemList';
 import HorizonQueueWidget from './components/HorizonQueueWidget';
-import HorizonRedisWidget from './components/HorizonRedisWidget';
 
 export default function extendDashboardPage() {
   extend(DashboardPage.prototype, 'availableWidgets', function (widgets: ItemList<Mithril.Children>) {
@@ -19,8 +18,7 @@ export default function extendDashboardPage() {
       widgets.add('queue', <HorizonQueueWidget />, 15);
     }
 
-    // The Redis server card is a distinct concern (memory / ops / eviction),
-    // not a queue duplicate, so it remains its own widget.
-    widgets.add('horizon-redis', <HorizonRedisWidget />, 12);
+    // The Redis server card now ships with fof/redis, which registers it on
+    // the dashboard itself — horizon no longer duplicates it here.
   });
 }
