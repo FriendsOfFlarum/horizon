@@ -35,8 +35,8 @@ class HorizonConfigurationTest extends TestCase
         // keeps test traffic away from any real data on the shared instance.
         $this->extend(
             (new Redis([
-                'host' => '127.0.0.1',
-                'port' => 6379,
+                'host' => getenv('REDIS_HOST') ?: '127.0.0.1',
+                'port' => (int) (getenv('REDIS_PORT') ?: 6379),
             ]))->useDatabaseWith('queue', 13)
         );
     }
@@ -128,6 +128,28 @@ class HorizonConfigurationTest extends TestCase
     }
 
     #[Test]
+    public function a_generic_emails_process_override_applies_when_email_concurrency_is_unset()
+    {
+        $this->config('horizon', [
+            'supervisors' => ['emails' => ['processes' => 4]],
+        ]);
+
+        $this->assertSame(4, $this->supervisor('emails')['processes']);
+    }
+
+    #[Test]
+    public function the_emails_max_processes_env_applies_when_email_concurrency_is_unset()
+    {
+        putenv('REDIS_HORIZON_EMAILS_MAX_PROCESSES=3');
+
+        try {
+            $this->assertSame(3, $this->supervisor('emails')['processes']);
+        } finally {
+            putenv('REDIS_HORIZON_EMAILS_MAX_PROCESSES');
+        }
+    }
+
+    #[Test]
     public function email_concurrency_is_set_via_config_php()
     {
         $this->config('horizon', ['email_concurrency' => 4]);
@@ -184,6 +206,20 @@ class HorizonConfigurationTest extends TestCase
         ]);
 
         $this->assertSame(5, $this->supervisor('emails')['processes']);
+    }
+
+    #[Test]
+    public function email_concurrency_wins_over_the_emails_max_processes_env()
+    {
+        $this->config('horizon', ['email_concurrency' => 5]);
+
+        putenv('REDIS_HORIZON_EMAILS_MAX_PROCESSES=3');
+
+        try {
+            $this->assertSame(5, $this->supervisor('emails')['processes']);
+        } finally {
+            putenv('REDIS_HORIZON_EMAILS_MAX_PROCESSES');
+        }
     }
 
     #[Test]
