@@ -17,7 +17,7 @@ A comprehensive queue management solution for Flarum, powered by [Laravel Horizo
 
 ## Requirements
 
-- **Flarum 2.0+**
+- **Flarum 2.1+**
 - **Redis Compatible Server** (required for Horizon to function)
 
 ## Installation
