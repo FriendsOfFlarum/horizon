@@ -35,8 +35,8 @@ export default function extendMailPage() {
           placeholder: 1,
         })
       ),
-      // Just below the built-in addresses/format/driver fields.
-      50
+      // Between mail_driver (60) and mail_driver_settings (50), so itemSections() keeps it under "Sending".
+      55
     );
   });
 }
