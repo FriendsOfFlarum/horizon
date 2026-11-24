@@ -3,3 +3,5 @@ vendor/
 composer.lock
 .phpunit.cache
 tests/integration/tmp
+js/dist
+js/dist-typings
