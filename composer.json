@@ -21,7 +21,7 @@
         "forum": "https://discuss.flarum.org/d/37227-friendsofflarum-horizon"
     },
     "require": {
-        "flarum/core": "2.x-dev",
+        "flarum/core": "^2.1.0-beta.1",
         "laravel/horizon": "^5.45.4",
         "fof/redis": "^2.0.0",
         "vlucas/phpdotenv": "^5.2"
@@ -85,6 +85,6 @@
         "test:integration:filter": "Runs integration tests matching a pattern.",
         "test:setup": "Sets up a database for use with integration tests. Execute this only once."
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "beta",
     "prefer-stable": true
 }
