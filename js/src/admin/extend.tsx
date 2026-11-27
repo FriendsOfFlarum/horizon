@@ -19,24 +19,18 @@ export default [
           >
             {app.translator.trans('fof-horizon.admin.stats.full_dashboard')}
           </LinkButton>
-          <hr />
         </div>
       ),
       100
     )
-    .customSetting(
-      () => (
-        <div>
-          <h3>{trans('mail_title')}</h3>
-          <p className="helpText">{trans('mail_help')}</p>
-        </div>
-      ),
-      96
-    )
+    .section(() => ({ id: 'mail', icon: 'fas fa-envelope', label: trans('mail_title'), description: trans('mail_help') }), 30)
+    .section(() => ({ id: 'trim', icon: 'fas fa-broom', label: trans('trim_title'), description: trans('trim_help') }), 20)
+    .section(() => ({ id: 'workers', icon: 'fas fa-server', label: trans('supervisor_title'), description: trans('supervisor_help') }), 10)
     .setting(
       () =>
         lockable('email_concurrency', {
           type: 'number',
+          section: 'mail',
           min: 1,
           setting: 'fof-horizon.email_concurrency',
           label: trans('email_concurrency'),
@@ -45,19 +39,11 @@ export default [
         }),
       95
     )
-    .customSetting(
-      () => (
-        <div>
-          <h3>{trans('trim_title')}</h3>
-          <p className="helpText">{trans('trim_help')}</p>
-        </div>
-      ),
-      90
-    )
     .setting(
       () =>
         lockable('trim.recent', {
           type: 'number',
+          section: 'trim',
           setting: 'fof-horizon.trim.recent',
           label: trans('trim_recent'),
           help: trans('trim_recent_help'),
@@ -68,6 +54,7 @@ export default [
       () =>
         lockable('trim.pending', {
           type: 'number',
+          section: 'trim',
           setting: 'fof-horizon.trim.pending',
           label: trans('trim_pending'),
           help: trans('trim_pending_help'),
@@ -78,6 +65,7 @@ export default [
       () =>
         lockable('trim.completed', {
           type: 'number',
+          section: 'trim',
           setting: 'fof-horizon.trim.completed',
           label: trans('trim_completed'),
           help: trans('trim_completed_help'),
@@ -88,6 +76,7 @@ export default [
       () =>
         lockable('trim.recent_failed', {
           type: 'number',
+          section: 'trim',
           setting: 'fof-horizon.trim.recent_failed',
           label: trans('trim_recent_failed'),
           help: trans('trim_recent_failed_help'),
@@ -98,6 +87,7 @@ export default [
       () =>
         lockable('trim.failed', {
           type: 'number',
+          section: 'trim',
           setting: 'fof-horizon.trim.failed',
           label: trans('trim_failed'),
           help: trans('trim_failed_help'),
@@ -108,25 +98,18 @@ export default [
       () =>
         lockable('trim.monitored', {
           type: 'number',
+          section: 'trim',
           setting: 'fof-horizon.trim.monitored',
           label: trans('trim_monitored'),
           help: trans('trim_monitored_help'),
         }),
       84
     )
-    .customSetting(
-      () => (
-        <div>
-          <h3>{trans('supervisor_title')}</h3>
-          <p className="helpText">{trans('supervisor_help')}</p>
-        </div>
-      ),
-      70
-    )
     .setting(
       () =>
         lockable('memory_limit', {
           type: 'number',
+          section: 'workers',
           setting: 'fof-horizon.memory_limit',
           label: trans('memory_limit'),
           help: trans('memory_limit_help'),

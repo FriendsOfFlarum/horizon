@@ -7,11 +7,11 @@
     "@flarum/prettier-config": "^1.0.0",
     "@types/node": "^24",
     "flarum-tsconfig": "^2.0.0",
-    "flarum-webpack-config": "^3.1.0",
+    "flarum-webpack-config": "^3.1.1",
     "prettier": "^3.0",
     "typescript": "^5.9.3",
     "typescript-coverage-report": "^0.6.1",
-    "webpack": "^5.94.0",
+    "webpack": "^5.104.1",
     "webpack-cli": "^7.2.3"
   },
   "resolutions": {

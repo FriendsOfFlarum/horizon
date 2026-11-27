@@ -21,7 +21,7 @@
         "forum": "https://discuss.flarum.org/d/37227-friendsofflarum-horizon"
     },
     "require": {
-        "flarum/core": "^2.0.0",
+        "flarum/core": "^2.1.0-beta.1",
         "laravel/horizon": "^5.45.4",
         "fof/redis": "^2.0.0",
         "vlucas/phpdotenv": "^5.2"
@@ -33,7 +33,7 @@
     },
     "extra": {
         "branch-alias": {
-            "2.x": "2.x-dev"
+            "dev-2.x": "2.x-dev"
         },
         "flarum-extension": {
             "title": "FoF Horizon",
@@ -57,10 +57,10 @@
         }
     },
     "require-dev": {
-        "flarum/gdpr": "*",
-        "flarum/phpstan": "^2.0.0",
-        "flarum/realtime": "*",
-        "flarum/testing": "^2.0.0",
+        "flarum/gdpr": "^2.1.0-beta.1",
+        "flarum/phpstan": "^2.1.0-beta.1",
+        "flarum/realtime": "^2.1.0-beta.1",
+        "flarum/testing": "^2.1.0-beta.1",
         "fof/geoip": "*"
     },
     "scripts": {
@@ -71,14 +71,18 @@
             "@test:integration"
         ],
         "test:unit": "phpunit -c tests/phpunit.unit.xml",
+        "test:unit:filter": "phpunit -c tests/phpunit.unit.xml --filter",
         "test:integration": "phpunit -c tests/phpunit.integration.xml",
+        "test:integration:filter": "phpunit -c tests/phpunit.integration.xml --filter",
         "test:setup": "@php tests/integration/setup.php"
     },
     "scripts-descriptions": {
         "analyse:phpstan": "Run static analysis",
         "test": "Runs all tests.",
         "test:unit": "Runs all unit tests.",
+        "test:unit:filter": "Runs unit tests matching a pattern.",
         "test:integration": "Runs all integration tests.",
+        "test:integration:filter": "Runs integration tests matching a pattern.",
         "test:setup": "Sets up a database for use with integration tests. Execute this only once."
     },
     "minimum-stability": "beta",

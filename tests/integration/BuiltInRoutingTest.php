@@ -44,8 +44,8 @@ class BuiltInRoutingTest extends TestCase
 
         $this->extend(
             (new Redis([
-                'host' => '127.0.0.1',
-                'port' => 6379,
+                'host' => getenv('REDIS_HOST') ?: '127.0.0.1',
+                'port' => (int) (getenv('REDIS_PORT') ?: 6379),
             ]))->useDatabaseWith('queue', 13)
         );
     }
